@@ -40,7 +40,7 @@ def check(fields: dict, sender: Optional[str] = None) -> List[dict]:
     r, a = (bank.get("routing") or "").strip(), (bank.get("account_last4") or "").strip()
     if (r and r != h["routing"]) or (a and a != h["account_last4"]):
         new_bank = (bank.get("name") or "a new bank").replace(" (EXAMPLE)", "")
-        out.append({"code": "bank_changed", "blocks": True,
+        out.append({"code": "bank_changed", "blocks": True, "last_invoice": h["last_invoice"], "last_date": h["date"],
                     "was": f"{h['bank'].replace(' (EXAMPLE)', '')} ****{h['account_last4']}", "now": f"{new_bank} ****{a or '?'}",
                     "text": f"The bank account changed. The last invoice ({h['last_invoice']}, {h['date']}) was paid to "
                             f"{h['bank'].replace(' (EXAMPLE)', '')} ****{h['account_last4']}. This one asks for {new_bank} "
@@ -48,7 +48,7 @@ def check(fields: dict, sender: Optional[str] = None) -> List[dict]:
     for who in filter(None, [sender, fields.get("sender_email")]):
         d = _domain(who)
         if d and d != h["domain"]:
-            out.append({"code": "sender_domain", "blocks": True,
+            out.append({"code": "sender_domain", "blocks": True, "domain": d, "usual": h["domain"],
                         "text": f"It came from a new address, {d}; this vendor writes from {h['domain']}."})
             break
     return out

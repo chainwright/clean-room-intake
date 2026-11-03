@@ -53,6 +53,7 @@ def fake_llm(system: str, user: str) -> str:
         "due_date": g(r"Due:?\s*([\d/]{8,10})"), "total": float(total.replace(",", "")) if total else None,
         "currency": "USD", "pay_method": "ach" if re.search(r"routing", t, re.I) else "check",
         "bank": {"name": g(r"(\w+ \w+ Bank) \(EXAMPLE\)"), "routing": g(r"routing (\d{9})"), "account_last4": g(r"\*{4}(\d{4})")},
+        "remit_to": g(r"(?:check to|Pay by check to)\s+([^\n<]+?)(?:\n|<|$)"),
         "sender_email": g(r"([\w.-]+@[\w.-]+\.example(?:\.net)?)"),
     })
 
