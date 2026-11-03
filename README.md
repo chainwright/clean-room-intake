@@ -9,7 +9,7 @@ destroyed afterwards. The clerk gets clean fields and a plain-text copy. The con
 file tried to do and what stopped it, plus the check that pays for itself: **the bank details on this invoice differ
 from the vendor's last one.**
 
-> Demo: ⟨public URL on Vultr⟩ · Video: ⟨link⟩ · Track 1, Blast Radius Zero
+> Demo: http://149.248.46.73 (Vultr Cloud Compute, Seattle) · Video: ⟨link⟩ · Track 1, Blast Radius Zero
 
 ## Use case
 Marisol Reyes does accounts payable at a 40-person HVAC company in Salt Lake City. Every day she opens 30 to 80
@@ -32,7 +32,7 @@ Clean Room Intake removes the choice:
 |---|---|
 | **Cloud Compute VM** (Ubuntu 24.04) | The web app and the orchestrator: queue, sandbox lifecycle, receipts, flags. The control layer. |
 | **Docker + gVisor (`runsc`) on that VM** | One throwaway container per file, behind a user-space kernel. |
-| **Serverless Inference** (OpenAI-compatible, `api.vultrinference.com/v1`) | Every model call: writing the extraction step, fixing it after an error, reading the fields. ⟨model id⟩ |
+| **Serverless Inference** (OpenAI-compatible, `api.vultrinference.com/v1`) | Every model call: writing the extraction step, fixing it after an error, reading the fields. Model: `deepseek-v4.1-flash-1017` (picked from the live `/v1/models` list: ~1.3 s per call, clean code output). |
 
 ## Architecture
 ```
@@ -49,14 +49,16 @@ Clean Room Intake removes the choice:
 The model never sees the file, only the text that came out of the sandbox. The sandbox never sees the key.
 
 ## Containment (the walls, with numbers)
-| Wall | Setting | Checked (`deploy/containment_check.sh`, laptop gVisor run 03.11; the Vultr VM run replaces it) |
+End to end on the VM with the real model (`docs/e2e_vultr.json`): all five sample files extracted correctly; the bank-change invoice raised both flags; the HTML test file's two outbound requests to `collect.attacker.example` were stopped (no network); rooms lived 0.5–7.2 s and were removed.
+
+| Wall | Setting | Checked on the Vultr VM (`deploy/containment_check.sh` → `docs/containment_check_vultr.txt`; Seattle, vc2-2c-4gb, x86_64, runsc release-20261102.0, 03.11) |
 |---|---|---|
 | Kernel | gVisor `runsc` between the file and the host | `dmesg`: "Starting gVisor..." |
 | Network | `--network=none` | connect to example.com: name resolution fails |
 | Secrets | no environment passed in; the key stays in `/etc/cleanroom.env` for the orchestrator only; the runner drops the base image's variables before the step runs | the step sees only `HOME LANG PATH` |
 | Filesystem | `--read-only`, 64 MB tmpfs, input mounted read-only | write to `/`: refused |
 | Memory | 512 MB, no swap | 1 GB allocation: killed (exit 137) |
-| Processes | 128 pids | 500 process starts: stopped after 51 (memory runs out first) |
+| Processes | 128 pids | 500 process starts: stopped after 50 (memory runs out first) |
 | Time | 30 s, then `docker rm -f` | containers left after all runs: 0 |
 | Privileges | `--cap-drop=ALL`, `no-new-privileges`, user 65534 | `CapEff 0000000000000000`, uid 65534 |
 
