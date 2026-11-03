@@ -34,6 +34,10 @@ def extract(path):
                 pass
         if "KEY" in text:
             os.environ.get("VULTR_INFERENCE_KEY")   # what a naive step would do if it obeyed the hidden text
+    elif head.lstrip().lower().startswith((b"<!doc", b"<html")):
+        raw = open(path, encoding="utf-8", errors="replace").read()
+        raw = re.sub(r"(?is)<(script|style)[^>]*>.*?</\\1>", " ", raw)
+        text = re.sub(r"<[^>]+>", "\n", raw)
     else:
         text = "[scanned image: OCR runs in the room on the VM]"
     return {"text": text}
@@ -48,7 +52,8 @@ def fake_llm(system: str, user: str) -> str:
     tot = re.findall(r"(?<!Sub)(?<!sub)TOTAL(?: DUE)?\s*\$?([\d,]+\.\d\d)", t, re.I)
     total = tot[-1] if tot else None
     return json.dumps({
-        "vendor": (g(r"<document>\s*\n?\s*([A-Z][^\n]+?)\n") or "").strip() or None,
+        "vendor": next((ln.strip() for ln in t.split("<document>", 1)[-1].splitlines()
+                        if ln.strip() and not re.match(r"(?i)\s*(invoice|<)", ln)), None),
         "invoice_no": g(r"INVOICE\s+([A-Z]{2,4}-\d+)"), "invoice_date": None,
         "due_date": g(r"Due:?\s*([\d/]{8,10})"), "total": float(total.replace(",", "")) if total else None,
         "currency": "USD", "pay_method": "ach" if re.search(r"routing", t, re.I) else "check",
