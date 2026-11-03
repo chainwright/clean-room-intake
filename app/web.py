@@ -333,7 +333,7 @@ def list_intakes(req: Request):
                 for j in sorted(JOBS.values(), key=lambda j: -j["created"]) if j.get("owner") == req.state.vid]
 
 
-CALLABLE = {"bank_changed", "sender_domain", "new_vendor", "remit_changed"}
+CALLABLE = {"bank_changed", "sender_domain", "new_vendor", "remit_changed", "pay_method_changed"}
 
 
 @app.post("/api/intake/{jid}/approve")

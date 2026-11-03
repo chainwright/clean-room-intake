@@ -210,7 +210,7 @@ function rawRecord(j) {
 function breakinStub(j) {
   const ps = j.probes || [], held = ps.filter((p) => p.held).length, r = j.tries?.[0]?.receipt; if (!r) return "";
   const rooms = j.tries.map((t) => `${t.receipt.room.toUpperCase()} · lived ${Math.max(0, t.receipt.destroyed - t.receipt.started).toFixed(2)} s · exit ${t.receipt.exit_code}`);
-  return `<div class="stub"><div class="st ${held === ps.length ? "stopped" : "got"}">${held} OF ${ps.length} STOPPED</div>Break-in test · our attack script<hr>` +
+  return `<div class="stub"><div class="st ${held === ps.length ? "stopped" : "got"}">${ps.length - held} OF ${ps.length} GOT THROUGH</div>Break-in test · our attack script<hr>` +
     `NET ${esc(r.network)} · FS read-only<br>MEM ${r.caps.memory_mb}&nbsp;MB · CPU&nbsp;${r.caps.cpus} · ${r.caps.seconds}&nbsp;s<br>secrets inside: ${r.secrets_inside ?? "not measured"}${r.env_names?.length ? ` (sees ${esc(r.env_names.join(", "))})` : ""} · runtime ${esc(r.runtime)}<hr>` +
     ps.map((p) => p.held ? `<span class="x">✕ ${esc(p.attack)}</span>` : `<span class="got">⚠ ${esc(p.attack)} · got through</span>`).join("<br>") +
     `<hr>${rooms.map(esc).join("<br>")}<br>both rooms destroyed ✓${rawRecord(j)}</div>`;
@@ -221,7 +221,7 @@ function stub(j) {
   const tried = distinct(j);
   const held = (j.flags || []).some((x) => x.blocks) && !j.approved;
   const flagged = (j.flags || []).some((x) => x.blocks), hidden = (j.notes || []).some((n) => /instruction/i.test(n));
-  const callable = (j.flags || []).some((x) => ["bank_changed", "sender_domain", "new_vendor", "remit_changed"].includes(x.code));
+  const callable = (j.flags || []).some((x) => ["bank_changed", "sender_domain", "new_vendor", "remit_changed", "pay_method_changed"].includes(x.code));
   const st = failedOf(j) ? `<div class="st held">COULDN'T READ · ASK FOR A NEW COPY</div>`
     : held ? `<div class="st held">HOLD · needs you</div>` : flagged ? `<div class="st held">${callable ? "APPROVED · CALL NOTED" : "APPROVED AFTER REVIEW"}</div>`
     : tried.length ? `<div class="st stopped">${tried.length} STOPPED</div>` : hidden ? `<div class="st held">HIDDEN INSTRUCTIONS FOUND</div>`
@@ -271,7 +271,7 @@ function renderBreakinSlip(j, filled) {
   const rows = !filled ? `<div class="f ghost"><span class="k">attacks</span><span class="v">·</span></div>`
     : ps.map((p, i) => `<div class="f fill" style="animation-delay:${i * 80}ms"><span class="k">${esc(p.attack)}</span>` +
       `<span class="v ${p.held ? "" : "gotv"}">${p.held ? "stopped" : "GOT THROUGH"} · <span class="how">${esc(p.how)}</span></span></div>`).join("");
-  const stamp = filled ? `<div class="stamp ${held === ps.length ? "" : "got"}">${held} OF ${ps.length}<br>STOPPED AT THE GLASS</div>` : "";
+  const stamp = filled ? `<div class="stamp ${held === ps.length ? "" : "got"}">${ps.length - held} OF ${ps.length}<br>GOT THROUGH</div>` : "";
   el.className = "slip";
   el.innerHTML = stamp + `<h2>${filled ? "Break-in test" : "Attacking the room…"}</h2>` +
     `<div class="sub">Our own attack script, run in fresh rooms with exactly the walls a stranger's file gets. No model involved.</div>` +
@@ -298,7 +298,7 @@ function renderSlip(j, reached, filled) {
   view.phase = phase;
   const tried = distinct(j), held = (j.flags || []).some((x) => x.blocks) && !j.approved;
   const stamp = !filled ? "" : tried.length ? `<div class="stamp">${tried.length} ATTEMPT${tried.length === 1 ? "" : "S"}<br>STOPPED AT THE GLASS</div>`
-    : held ? `<div class="stamp hold">${(j.flags || []).some((x) => ["bank_changed", "sender_domain", "new_vendor", "remit_changed"].includes(x.code)) ? "HOLD · CALL VENDOR" : "HOLD · LOOK FIRST"}</div>` : "";
+    : held ? `<div class="stamp hold">${(j.flags || []).some((x) => ["bank_changed", "sender_domain", "new_vendor", "remit_changed", "pay_method_changed"].includes(x.code)) ? "HOLD · CALL VENDOR" : "HOLD · LOOK FIRST"}</div>` : "";
   const top = !filled ? "" : held ? holdShort(j) :
     tried.length ? `<div class="tried">The file tried ${tried.length} thing${tried.length === 1 ? "" : "s"} while it was open. ${tried.length === 1 ? "It" : tried.length === 2 ? "Both" : "All"} stopped at the glass${(j.control || []).some((c) => /HTTP/.test(c.result)) ? " (outside the room, the same addresses answer)" : ""}. Your fields are below.</div>` : "";
   const bankFlag = (j.flags || []).find((x) => x.code === "bank_changed");
@@ -311,7 +311,7 @@ function renderSlip(j, reached, filled) {
   const fields = !filled ? ["Amount", "Invoice", "Due", "Pay by"].map((k) => `<div class="f ghost"><span class="k">${k}</span><span class="v">·</span></div>`).join("")
     : rows.filter(([, v]) => v).map(([k, v, c], i) =>
     `<div class="f fill" style="animation-delay:${i * 80}ms"><span class="k">${k}</span><span class="v ${c === "amt" ? "amt" : ""}">${c === "raw" ? v : esc(v)}</span></div>`).join("");
-  const ver = !filled || !(j.verify || []).length ? "" : `<div class="ver">checked against the room's text, not the model: ` +
+  const ver = !filled || !(j.verify || []).length ? "" : `<div class="ver">checked against the file's own text, not the model's answer: ` +
     j.verify.map((v) => `<span class="${v.found ? "ok" : "no"}">${esc(v.field)} ${v.found ? "✓" : "✕ not in the file"}</span>`).join(" · ") + `</div>`;
   const notes = !filled ? "" : (j.notes || []).map((n) => {
     const q = /“([^”]+)”/.exec(n);                     // the hidden text itself, quoted, so nobody has to take our word for it
@@ -344,9 +344,12 @@ async function refreshQueue(flash) {
   }).join("");
   $("queue").onclick = (e) => { const id = e.target.closest(".chip")?.dataset.id; if (id) follow(id, true); };
   const done = items.filter((i) => i.done), files = done.filter((i) => i.kind !== "breakin").length, c = $("count");
-  const stopped = done.reduce((n, i) => n + (i.kind === "breakin" ? i.held : i.stopped), 0);
-  const got = done.reduce((n, i) => n + (i.got_out || 0), 0);   // measured: completed requests in the room's net log + failed walls
-  c.textContent = done.length ? `${files} file${files === 1 ? "" : "s"} opened · ${stopped} attempt${stopped === 1 ? "" : "s"} stopped · ${got} got out` : "";
+  // the clerk's own files only; our break-in test is counted on its own, never added to the files' numbers
+  const stopped = done.reduce((n, i) => n + (i.kind === "breakin" ? 0 : i.stopped), 0);
+  const got = done.reduce((n, i) => n + (i.kind === "breakin" ? 0 : i.got_out || 0), 0);   // measured: completed requests in the room's net log
+  const bk = done.filter((i) => i.kind === "breakin").at(-1);
+  c.textContent = done.length ? `${files} file${files === 1 ? "" : "s"} opened · ${stopped} attempt${stopped === 1 ? "" : "s"} stopped · ${got} got out` +
+    (bk ? ` · break-in test: ${bk.probes - bk.held} of ${bk.probes} got through` : "") : "";
   if (flash) { c.classList.remove("flash"); void c.offsetWidth; c.classList.add("flash"); }
 }
 
@@ -360,7 +363,7 @@ async function showReceipts() {
     if (!(j.flags || []).length) return s;
     const h = holdShort(j).replace(/^<div class="hold"><b>HOLD<\/b> · /, "").replace(/<\/div>$/, "") +
       `<details><summary>details</summary>${holdHtml(j).replace(/^<div class="hold"><b>HOLD<\/b> · /, "").replace(/<\/div>$/, "")}</details>`;
-    const callable = (j.flags || []).some((x) => x.blocks && ["bank_changed", "sender_domain", "new_vendor", "remit_changed"].includes(x.code));
+    const callable = (j.flags || []).some((x) => x.blocks && ["bank_changed", "sender_domain", "new_vendor", "remit_changed", "pay_method_changed"].includes(x.code));
     const noted = j.approval_note ? `<br><span class="ctl">call note: ${esc(j.approval_note)}</span>` : "";
     return s.slice(0, -6) + `<hr><b class="${j.approved ? "" : "held"}">${j.approved ? "Approved" : "HOLD"}</b> · ${h}` + noted +
       (j.approved ? "" : (callable ? `<br><input class="note" data-note="${j.id}" maxlength="200" placeholder="call note: who called, which number on file">` : "") +

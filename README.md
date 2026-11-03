@@ -25,7 +25,8 @@ Clean Room Intake removes the choice:
 3. She gets the vendor, invoice number, amount, due date and bank details as plain text, each with the page it came from.
 4. The sandbox is destroyed. The receipt stays (in the app's memory for the demo; a restart clears it).
 5. **Send to pay list** is held until the controller approves whenever the bank details changed, the email came from
-   a look-alike domain, the pay-to address changed, the file tried to reach anything while open, the file carries hidden
+   a look-alike domain, the pay-to address changed (or there's none on file to compare with), the vendor asks to be paid
+   a different way (check instead of ACH, Zelle, PayPal, crypto, "new payment method"), the file tried to reach anything while open, the file carries hidden
    instructions, or the vendor has never been paid before (any pay method, checks included). Approval covers exactly the
    holds the controller saw (a new hold needs a new approval), and a hold about who gets the money can't be approved
    without a written call note (who called, on which number from your own records), which stays on the receipt. The hold fails closed

@@ -39,7 +39,11 @@ INSTRUCTION_LIKE = re.compile(
     r"(?i)\b(ignore (all |any |the )?(previous|prior|above|earlier) (instructions|rules|prompts?)|disregard (all |any |the )?"
     r"(previous|prior|above|earlier)|new instructions\s*:|system\s*(prompt)?\s*:|assistant\s*:|you are (now )?an? |"
     r"print (the )?(value|contents) of|environment variable|api[ _-]?key|exfiltrat|send (it|them|this|the \w+) to|"
-    r"fetch https?://|reveal (your|the) |do not (tell|mention|flag)|report (the )?(bank|routing|account)|<\|im_start\|>)")
+    r"fetch https?://|reveal (your|the) |do not (tell|mention|flag)|report (the )?(bank|routing|account)|<\|im_start\|>|"
+    # reworded: addressed to software, or "forget what you were told", and two common non-English forms
+    r"(note|message|instructions?) (to|for) (any )?(automated|ai|machine|llm|language model)s?\b|automated (readers?|systems?|parsers?)|"
+    r"(set aside|forget|disregard|override) (what you were told|(all |any |the )?(earlier|previous|prior) (guidance|instructions|rules))|"
+    r"ignorez? (les |toutes les )?instructions|ignoriere (alle |die )?(vorherigen )?anweisungen|ignora (las |todas las )?instrucciones)")
 
 
 @dataclass

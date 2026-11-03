@@ -13,10 +13,10 @@ from typing import Dict, List, Optional
 HISTORY: Dict[str, dict] = {
     "granite peak refrigerants": {"last_invoice": "GPR-5520", "date": "09/30/2026", "total": 1284.00,
                                   "bank": "Canyon State Bank (EXAMPLE)", "routing": "000067890", "account_last4": "2208",
-                                  "domain": "granitepeak-refrig.example"},
+                                  "domain": "granitepeak-refrig.example", "pay_method": "ach"},
     "bonneville sheet metal supply": {"last_invoice": "BSM-23980", "date": "09/26/2026", "total": 512.40,
                                       "bank": "Mountain Ledger Bank (EXAMPLE)", "routing": "000012345", "account_last4": "4471",
-                                      "domain": "bonneville-sheetmetal.example", "remit_to": "2140 S 300 W, Salt Lake City, UT"},
+                                      "domain": "bonneville-sheetmetal.example", "remit_to": "2140 S 300 W, Salt Lake City, UT", "pay_method": "ach"},
 }
 
 
@@ -37,8 +37,12 @@ ACCOUNT = re.compile(r"(?i)(?:\*{2,}\s*|x{2,}\s*|ending(?:\s+in)?\s+|\ba/?c\b\.?
 PAYNUM = re.compile(r"(?i)\b(?:beneficiary|deposit|remit|wire|konto|transit|payee|credit\s+to|pay(?:ment)?\s+to|account|acct|"
                     r"a/c|iban|routing|aba|swift|bank)\b[^\n\d]{0,40}?(\d{6,17})(?!\d)")
 # an account number spelled out in words ("nine nine one three") can't be matched to the record: hold
+NUMBERISH = re.compile(r"(?i)\b(number|no\.|#|routing|account|acct|iban|bank)\b")
 SPELLED = re.compile(r"(?i)\b(?:zero|one|two|three|four|five|six|seven|eight|nine)(?:[\s,-]+(?:zero|one|two|three|four|five|six|seven|"
                      r"eight|nine)){3,}\b")
+# money sent some other way than the vendor's usual one: payment apps, crypto, e-mail payees, "new payment method"
+OTHER_RAIL = re.compile(r"(?i)\b(zelle|venmo|paypal|cash ?app|wise\.com|western union|bitcoin|btc|usdt|crypto|wallet address|"
+                        r"gift cards?|new payment (method|instructions|details)|pay(ment)? (by|via) (e-?mail|phone)|wire (it |payment )?to)\b")
 # where an invoice says where to send a check
 REMIT_AT = re.compile(r"(?i)\b(?:remit(?:tance)?(?:\s+to)?|mail\s+checks?(?:\s+to)?|send\s+(?:payment|checks?)(?:\s+to)?|payable\s+to|"
                       r"pay\s+by\s+check\s+to|pay\s+to)\b:?([^\n]{0,80})")
@@ -119,6 +123,18 @@ def check(fields: dict, sender: Optional[str] = None, text: str = "", notes: Opt
                         "text": "First invoice from this vendor (no payment history): confirm who they are and where "
                                 "to pay them by phone before the first payment."})
         return out
+    usual = h.get("pay_method")
+    pm = (fields.get("pay_method") or "").lower()
+    rail = OTHER_RAIL.search(text or "")
+    if (pm and usual and pm != usual) or rail:
+        how = rail.group(0) if rail else pm
+        out.append({"code": "pay_method_changed", "blocks": True, "was": usual or "?", "now": how,
+                    "text": f"This invoice asks to be paid a different way ({how}); {fields.get('vendor') or 'this vendor'} is "
+                            f"usually paid by {usual or 'another method'}."})
+    if not h.get("remit_to") and [m for m in REMIT_AT.findall(text or "") if re.search(r"\d", m)]:
+        # an address to send money to, for a vendor we have none on file for: nothing to compare with, so hold
+        out.append({"code": "remit_changed", "blocks": True, "was": "none on file", "now": "?",
+                    "text": "The invoice gives a pay-to address, and there's none on file for this vendor to compare it with."})
     if h.get("remit_to") and (fields.get("remit_to") or fields.get("pay_method") == "check" or REMIT_AT.search(text or "")):
         now = fields.get("remit_to") or ""
         # the file's own text too: a pay-to address written there that isn't the one on file
@@ -137,7 +153,7 @@ def check(fields: dict, sender: Optional[str] = None, text: str = "", notes: Opt
     stray = {n for n in PAYNUM.findall(_digits(text)) if n != h["routing"] and n[-4:] != h["account_last4"]}
     changed = (r and r != h["routing"]) or (a and a != h["account_last4"]) or bool(in_text - {h["routing"]}) \
         or bool(accts - {h["account_last4"]}) or bool(stray)  # a number in the file's own text that isn't the one on file
-    if not changed and text and SPELLED.search(text) and BANKISH.search(text):
+    if not changed and text and SPELLED.search(text) and (BANKISH.search(text) or NUMBERISH.search(text)):
         out.append({"code": "bank_unread", "blocks": True,
                     "text": "The invoice writes a number out in words next to payment details. Check the account against "
                             "the vendor's record before paying."})
