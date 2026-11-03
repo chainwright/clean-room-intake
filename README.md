@@ -49,7 +49,7 @@ Clean Room Intake removes the choice:
 The model never sees the file, only the text that came out of the sandbox. The sandbox never sees the key.
 
 ## Containment (the walls, with numbers)
-End to end on the VM with the real model (`docs/e2e_vultr.json`): all five sample files extracted correctly; the bank-change invoice raised both flags; the HTML test file's two outbound requests to `collect.attacker.example` were stopped (no network); rooms lived 0.5–7.2 s and were removed.
+End to end on the VM with the real model (`docs/e2e_vultr.json`): all five sample files extracted correctly; the bank-change invoice raised both flags; the HTML test file's two outbound requests to `collect.attacker.example` were stopped (no network); rooms lived 0.7–14.2 s (the phone scan runs OCR) and were removed.
 
 | Wall | Setting | Checked on the Vultr VM (`deploy/containment_check.sh` → `docs/containment_check_vultr.txt`; Seattle, vc2-2c-4gb, x86_64, runsc release-20261102.0, 03.11) |
 |---|---|---|
