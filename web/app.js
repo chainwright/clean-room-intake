@@ -15,6 +15,9 @@ async function api(path, opts = {}) {
   return body;
 }
 
+// a file that couldn't be read ends in "destroyed" like any other: look for "failed" anywhere in its history
+const failedOf = (j) => (j.states || []).some((s) => s.state === "failed");
+
 // ---------- what a file tried, in words ----------
 const attemptsOf = (j) => (j.tries || []).flatMap((t) => t.receipt.attempts);
 function host(detail) {
@@ -212,7 +215,7 @@ function stub(j) {
   const held = (j.flags || []).some((x) => x.blocks) && !j.approved;
   const flagged = (j.flags || []).some((x) => x.blocks), hidden = (j.notes || []).some((n) => /instruction/i.test(n));
   const callable = (j.flags || []).some((x) => ["bank_changed", "sender_domain", "new_vendor"].includes(x.code));
-  const st = j.state === "failed" ? `<div class="st held">COULDN'T READ · ASK FOR A NEW COPY</div>`
+  const st = failedOf(j) ? `<div class="st held">COULDN'T READ · ASK FOR A NEW COPY</div>`
     : held ? `<div class="st held">HOLD · needs you</div>` : flagged ? `<div class="st held">${callable ? "APPROVED AFTER CALL" : "APPROVED AFTER REVIEW"}</div>`
     : tried.length ? `<div class="st stopped">${tried.length} STOPPED</div>` : hidden ? `<div class="st held">HIDDEN INSTRUCTIONS FOUND</div>`
     : `<div class="st clean">clean</div>`;
@@ -308,7 +311,7 @@ function renderSlip(j, reached, filled) {
   }).join("");
   const btn = !filled ? "" : j.paid ? `<div class="note">On the pay list.</div>`
     : held ? `<button class="btn" disabled>Waiting for controller</button><a class="btn ghost" href="#receipts">Open controller receipts</a>`
-    : j.state === "failed" ? "" : `<button class="btn" id="pay">Send to pay list</button>`;
+    : failedOf(j) ? "" : `<button class="btn" id="pay">Send to pay list</button>`;
   const sub = j.sender ? `From <span class="dom">${esc((/<([^>]+)>/.exec(j.sender) || [, j.sender])[1])}</span> · <span class="fn">${esc(j.file)}</span>`
     : `<span class="fn">${esc(j.file)}</span>${/TESTFILE/.test(j.file) ? " · our test file" : ""}`;
   el.innerHTML = stamp + `<h2>${esc(filled ? (f.vendor || "Unknown vendor") : "In the room…")}</h2><div class="sub">${sub}</div>` +
