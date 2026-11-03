@@ -23,10 +23,10 @@ function host(detail) {
 }
 function describe(a) {
   if (a.what === "getenv") return `tried to read ${a.detail} · nothing there`;
-  if (a.what === "browser") return /[?&]d=/.test(a.detail) ? `the page tried to send its title to ${host(a.detail)} · no network`
-    : /\.(png|gif|jpe?g|svg|webp)/i.test(a.detail) ? `the page tried to load an image from ${host(a.detail)} · no network`
-    : `the page tried to reach ${host(a.detail)} · no network`;
-  if (a.what.startsWith("socket") || a.what === "urllib.Request") return `tried to reach ${host(a.detail)} · no network`;
+  if (a.what === "browser") return /[?&]d=/.test(a.detail) ? `the page tried to send its title to ${host(a.detail)}`
+    : /\.(png|gif|jpe?g|svg|webp)/i.test(a.detail) ? `the page tried to load an image from ${host(a.detail)}`
+    : `the page tried to reach ${host(a.detail)}`;
+  if (a.what.startsWith("socket") || a.what === "urllib.Request") return `tried to reach ${host(a.detail)}`;
   if (a.what === "open") return `tried to open ${a.detail} · read-only room`;
   return `tried ${a.what} · stopped`;
 }
@@ -207,10 +207,10 @@ function renderSlip(j, reached, filled) {
     `<div class="f fill" style="animation-delay:${i * 80}ms"><span class="k">${k}</span><span class="v ${c === "amt" ? "amt" : ""}">${c === "raw" ? v : esc(v)}</span></div>`).join("");
   const notes = !filled ? "" : (j.notes || []).map((n) => `<div class="note">${esc(n)}</div>`).join("");
   const btn = !filled ? "" : j.paid ? `<div class="note">On the pay list.</div>`
-    : held ? `<button class="btn" disabled>Waiting for controller</button><button class="btn ghost" id="appr">Controller: approve</button>`
+    : held ? `<button class="btn" disabled>Waiting for controller</button><a class="btn ghost" href="#receipts">Open controller receipts</a>`
     : j.state === "failed" ? "" : `<button class="btn" id="pay">Send to pay list</button>`;
   const sub = j.sender ? `From <span class="dom">${esc((/<([^>]+)>/.exec(j.sender) || [, j.sender])[1])}</span> · <span class="fn">${esc(j.file)}</span>`
-    : `<span class="fn">${esc(j.file)}</span>${/TESTFILE/.test(j.file) ? " · our own harmless test file" : ""}`;
+    : `<span class="fn">${esc(j.file)}</span>${/TESTFILE/.test(j.file) ? " · our test file" : ""}`;
   el.innerHTML = stamp + `<h2>${esc(filled ? (f.vendor || "Unknown vendor") : "In the room…")}</h2><div class="sub">${sub}</div>` +
     `<div class="marks">${marks}</div>${top}${held && filled ? btn : ""}${fields}${filled && j.error ? `<div class="tried">${esc(j.error)}</div>` : ""}${notes}${held && filled ? "" : btn}`;
   const p = $("pay"); if (p) p.onclick = async () => { await api(`/api/intake/${j.id}/pay`, { method: "POST" }).catch((e) => alert(e.message)); reload(j.id); };
@@ -242,7 +242,8 @@ async function showReceipts() {
   $("stubs").innerHTML = full.map((j) => {
     const s = stub(j);
     if (!(j.flags || []).length) return s;
-    const h = holdHtml(j).replace(/^<div class="hold"><b>HOLD<\/b> · /, "").replace(/<\/div>$/, "");
+    const h = holdShort(j).replace(/^<div class="hold"><b>HOLD<\/b> · /, "").replace(/<\/div>$/, "") +
+      `<details><summary>details</summary>${holdHtml(j).replace(/^<div class="hold"><b>HOLD<\/b> · /, "").replace(/<\/div>$/, "")}</details>`;
     return s.slice(0, -6) + `<hr><b class="${j.approved ? "" : "held"}">${j.approved ? "Approved" : "HOLD"}</b> · ${h}` +
       (j.approved ? "" : `<br><button class="btn" data-ap="${j.id}">Approve</button>`) + "</div>";
   }).join("") || `<div class="empty">No files opened yet.</div>`;
