@@ -85,10 +85,16 @@ async function poll(id) {
 // every step the page will show, in order: states, with the file's attempts while it was open
 function beats(j) {
   if (j.kind === "breakin") return breakinBeats(j);
-  const out = [], tried = distinct(j);
+  const out = [], perTry = (j.tries || []).map((t) => [...new Set((t.receipt.attempts || []).map(describe))]);
+  let room = -1;
   for (const s of j.states.slice(1)) {
+    if (s.state === "opening") {            // each attempt lands under the room that made it (a retry gets a new room)
+      room++;
+      out.push({ kind: "state", state: s.state, at: s.at });
+      (perTry[room] || []).forEach((d) => out.push({ kind: "attempt", text: d, at: s.at }));
+      continue;
+    }
     if (s.state === "extracting") {
-      tried.forEach((d) => out.push({ kind: "attempt", text: d, at: s.at }));
       const hid = (j.notes || []).find((n) => /instruction/i.test(n));
       if (hid) out.push({ kind: "state", note: "hidden instructions inside the file · read as data, not obeyed", at: s.at });
     }

@@ -92,8 +92,9 @@ VULTR_INFERENCE_KEY=... CLEANROOM_MODEL=... .venv/bin/uvicorn app.web:app
   `setuid(0)`, grab 1 GB, fork 500 processes. The two attacks that end a room are judged from outside (exit code, and
   the forks the room's own audit hook recorded).
 - The vendor history (last invoice and bank details per vendor) is seeded; in a real shop it comes from the AP system.
-- **The demo has no login.** Anyone can approve a held payment on the public demo; a real deployment sits behind the
-  company's sign-in, with approvals tied to the controller's account.
+- **The demo has no login.** Each browser gets its own desk (a random visitor id in a cookie): it sees, approves and
+  pays only its own files; another visitor's file answers 404. Approving is a click, not a signed-in controller; a real
+  deployment sits behind the company's sign-in, with approvals tied to the controller's account.
 - Everything else is live: the sandbox, its caps, its destruction, and every model call.
 
 ## Licence

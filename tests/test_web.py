@@ -214,7 +214,8 @@ class PayGate(unittest.TestCase):
         self.c = TestClient(web.app); web.JOBS.clear()
 
     def job(self, **kw):
-        j = {"id": "j1", "file": "x.pdf", "done": True, "state": "extracted", "flags": [], "approved": False, "paid": False,
+        self.c.get("/api/samples")                       # gets this client its visitor cookie
+        j = {"id": "j1", "owner": self.c.cookies.get("cri_v"), "file": "x.pdf", "done": True, "state": "extracted", "flags": [], "approved": False, "paid": False,
              "fields": {"total": 1}, "tries": [], "kind": "pdf"}
         j.update(kw); web.JOBS["j1"] = j
 
@@ -233,3 +234,39 @@ class Incomplete(unittest.TestCase):
     def test_missing_amount_holds(self):
         f = web.flags.check({"vendor": "Bonneville Sheet Metal Supply", "invoice_no": None, "total": None}, text="Bonneville Sheet Metal Supply")
         self.assertEqual([x["code"] for x in f], ["incomplete"])
+
+
+class BankBypass(unittest.TestCase):
+    """Round-6 judge: spaced digits + a model that reports no bank fields must still hold."""
+    def test_spaced_routing_and_empty_model_fields_hold(self):
+        txt = "Granite Peak Refrigerants INVOICE GPR-5561 TOTAL $1,236.00 Pay by ACH: routing 0000 98765, account ending 9013"
+        f = web.flags.check({"vendor": "Granite Peak Refrigerants", "invoice_no": "GPR-5561", "total": 1236.0,
+                             "bank": {"routing": None, "account_last4": None}}, text=txt)
+        self.assertIn("bank_changed", [x["code"] for x in f])
+
+    def test_bank_words_but_nothing_matched_holds(self):
+        txt = "Granite Peak Refrigerants INVOICE GPR-5561 TOTAL $1,236.00 New bank details on request"
+        f = web.flags.check({"vendor": "Granite Peak Refrigerants", "invoice_no": "GPR-5561", "total": 1236.0,
+                             "bank": {}}, text=txt)
+        self.assertIn("bank_unread", [x["code"] for x in f])
+
+    def test_same_account_spelled_with_dashes_still_pays(self):
+        txt = "Bonneville Sheet Metal Supply BSM-24117 Total $736.81 routing 000-012-345 ****4471"
+        self.assertEqual(web.flags.check({"vendor": "Bonneville Sheet Metal Supply", "invoice_no": "BSM-24117", "total": 736.81,
+                                          "bank": {"routing": "000012345", "account_last4": "4471"}}, text=txt), [])
+
+
+
+class Visitors(unittest.TestCase):
+    """One visitor never sees, approves or pays another's file on the public demo."""
+    def test_other_visitors_cannot_see_or_touch_my_file(self):
+        me, other = TestClient(web.app), TestClient(web.app)
+        me.get("/api/samples"); other.get("/api/samples")
+        web.JOBS["mine"] = {"id": "mine", "owner": me.cookies.get("cri_v"), "file": "x.pdf", "state": "extracted", "done": True,
+                            "paid": False, "approved": False, "created": 1, "fields": {"total": 1}, "flags": [], "tries": [], "kind": "pdf"}
+        self.assertEqual(me.get("/api/intake/mine").status_code, 200)
+        self.assertEqual(other.get("/api/intake/mine").status_code, 404)
+        self.assertEqual(other.post("/api/intake/mine/approve").status_code, 404)
+        self.assertEqual(other.post("/api/intake/mine/pay").status_code, 404)
+        self.assertEqual([i["id"] for i in other.get("/api/intakes").json()], [])
+        self.assertEqual([i["id"] for i in me.get("/api/intakes").json()], ["mine"])

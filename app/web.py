@@ -41,11 +41,27 @@ app = FastAPI(title="Clean Room Intake")
 
 @app.middleware("http")
 async def no_stale_ui(request, call_next):
-    """The page and its script revalidate on every load, so a deploy is seen at once (judges, video takes)."""
+    """The page and its script revalidate on every load, so a deploy is seen at once (judges, video takes).
+    Every browser gets its own desk: a random visitor id in a cookie scopes every file, receipt, approval and payment,
+    so one visitor never sees another's invoice text on the public demo."""
+    vid = request.cookies.get("cri_v", "")
+    fresh = not re.fullmatch(r"[0-9a-f]{32}", vid)
+    if fresh:
+        vid = uuid.uuid4().hex
+    request.state.vid = vid
     resp = await call_next(request)
     if not request.url.path.startswith("/api/"):
         resp.headers["Cache-Control"] = "no-cache"
+    if fresh:
+        resp.set_cookie("cri_v", vid, httponly=True, samesite="lax", secure=request.url.scheme == "https", max_age=7 * 86400)
     return resp
+
+
+def _mine(req: Request, jid: str) -> dict:
+    j = JOBS.get(jid)
+    if not j or j.get("owner") != req.state.vid:
+        raise HTTPException(404)          # someone else's file looks exactly like no file
+    return j
 JOBS: dict = {}
 LOCK = threading.Lock()
 
@@ -146,7 +162,7 @@ def _admit(ip: str) -> None:
         _quota["n"] += 1
 
 
-def _start(name: str, data: bytes) -> str:
+def _start(name: str, data: bytes, owner: str = "") -> str:
     if len(data) > MAX_BYTES:
         raise HTTPException(413, "Files up to 10 MB.")
     sender = ""
@@ -156,7 +172,8 @@ def _start(name: str, data: bytes) -> str:
     with LOCK:
         JOBS[jid] = {"id": jid, "file": name, "sender": sender, "state": "queued", "states": [{"state": "queued", "at": time.time()}],
                      "fields": {}, "flags": [], "notes": [], "tries": [], "done": False, "paid": False,
-                     "approved": False, "created": time.time(), "model": "scripted (dev mode)" if devmode.ON else agent.MODEL}
+                     "approved": False, "created": time.time(), "owner": owner,
+                     "model": "scripted (dev mode)" if devmode.ON else agent.MODEL}
     threading.Thread(target=_work, args=(jid, name, data, sender), daemon=True).start()
     return jid
 
@@ -165,14 +182,14 @@ def _start(name: str, data: bytes) -> str:
 async def intake(req: Request, file: Optional[UploadFile] = File(default=None)):
     _admit(_visitor(req))
     if file is not None:
-        return {"id": _start(file.filename or "file", await file.read())}
+        return {"id": _start(file.filename or "file", await file.read(), req.state.vid)}
     b = await req.json()
     name = os.path.basename(str(b.get("sample", "")))
     path = os.path.join(INBOX, name)
     if not name or not os.path.isfile(path):
         raise HTTPException(404, "No such sample.")
     with open(path, "rb") as f:
-        return {"id": _start(name, f.read())}
+        return {"id": _start(name, f.read(), req.state.vid)}
 
 
 BREAKIN = os.path.join(ROOT, "sandbox", "breakin.py")
@@ -246,17 +263,15 @@ async def breakin(req: Request):
         JOBS[jid] = {"id": jid, "file": "break-in test (our attack script)", "sender": "", "state": "queued",
                      "states": [{"state": "queued", "at": time.time()}], "fields": {}, "flags": [], "notes": [],
                      "tries": [], "probes": [], "done": False, "paid": False, "approved": False,
-                     "created": time.time(), "kind": "breakin"}
+                     "created": time.time(), "kind": "breakin", "owner": req.state.vid}
     threading.Thread(target=_breakin_work, args=(jid,), daemon=True).start()
     return {"id": jid}
 
 
 @app.get("/api/intake/{jid}")
-def get_intake(jid: str):
+def get_intake(jid: str, req: Request):
     with LOCK:
-        if jid not in JOBS:
-            raise HTTPException(404)
-        return JSONResponse(JOBS[jid])
+        return JSONResponse({k: v for k, v in _mine(req, jid).items() if k != "owner"})
 
 
 def _stopped(j) -> int:
@@ -273,7 +288,7 @@ def _stopped(j) -> int:
 
 
 @app.get("/api/intakes")
-def list_intakes():
+def list_intakes(req: Request):
     with LOCK:
         return [{k: j[k] for k in ("id", "file", "state", "done", "paid", "approved", "created")} |
                 {"vendor": (j["fields"] or {}).get("vendor"), "total": (j["fields"] or {}).get("total"),
@@ -283,25 +298,21 @@ def list_intakes():
                                 if a.get("what") == "browser" and a.get("detail", "").endswith("(none)"))
                             + sum(1 for p in j.get("probes", []) if p.get("held") is False),
                  "held": sum(1 for p in j.get("probes", []) if p.get("held")), "probes": len(j.get("probes", []))}
-                for j in sorted(JOBS.values(), key=lambda j: -j["created"])]
+                for j in sorted(JOBS.values(), key=lambda j: -j["created"]) if j.get("owner") == req.state.vid]
 
 
 @app.post("/api/intake/{jid}/approve")
-def approve(jid: str):
+def approve(jid: str, req: Request):
     with LOCK:
-        j = JOBS.get(jid) or {}
-        if not j:
-            raise HTTPException(404)
+        j = _mine(req, jid)
         j["approved"] = True
         return {"ok": True}
 
 
 @app.post("/api/intake/{jid}/pay")
-def pay(jid: str):
+def pay(jid: str, req: Request):
     with LOCK:
-        j = JOBS.get(jid)
-        if not j:
-            raise HTTPException(404)
+        j = _mine(req, jid)
         if not j.get("done") or j.get("state") == "failed" or j.get("kind") == "breakin" or not j.get("fields"):
             raise HTTPException(409, "Not ready: the file hasn't been read yet, or it couldn't be read.")
         if any(f.get("blocks") for f in j["flags"]) and not j["approved"]:

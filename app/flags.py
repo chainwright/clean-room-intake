@@ -29,6 +29,15 @@ def _domain(email: Optional[str]) -> str:
     return m.group(1).lower() if m else ""
 
 
+ROUTING = re.compile(r"(?<!\d)(\d{9})(?!\d)")
+BANKISH = re.compile(r"(?i)\b(routing|aba|account\s*(no|number|#)?|acct|iban|swift|bic|wire|ach|bank)\b")
+
+
+def _digits(text: str) -> str:
+    """Digits written with spaces, dots or dashes between them ("0000 98765", "000-098-765") read as one number."""
+    return re.sub(r"(?<=\d)[\s.\-‐–]+(?=\d)", "", text or "")
+
+
 def _money(v) -> List[str]:
     try:
         x = float(v)
@@ -50,12 +59,10 @@ def verify(fields: dict, text: str) -> List[dict]:
                                ("account", bank.get("account_last4"), [str(bank.get("account_last4") or "")])):
         if value in (None, ""):
             continue
-        found = any(f and (f in low if name == "invoice" else f in t) for f in forms)
+        hay = low if name == "invoice" else _digits(t) if name in ("routing", "account") else t
+        found = any(f and f in hay for f in forms)
         rows.append({"field": name, "value": value, "found": found})
     return rows
-
-
-ROUTING = re.compile(r"(?<!\d)(\d{9})(?!\d)")
 
 
 def check(fields: dict, sender: Optional[str] = None, text: str = "", notes: Optional[List[str]] = None) -> List[dict]:
@@ -81,9 +88,15 @@ def check(fields: dict, sender: Optional[str] = None, text: str = "", notes: Opt
             out.append({"code": "new_vendor", "blocks": True,
                         "text": "First invoice from this vendor with bank details: confirm them by phone before the first payment."})
         return out
-    r, a = (bank.get("routing") or "").strip(), (bank.get("account_last4") or "").strip()
-    in_text = set(ROUTING.findall(text or ""))
+    r, a = re.sub(r"\D", "", bank.get("routing") or ""), re.sub(r"\D", "", bank.get("account_last4") or "")
+    in_text = set(ROUTING.findall(_digits(text)))
     changed = (r and r != h["routing"]) or (a and a != h["account_last4"]) or bool(in_text - {h["routing"]})
+    if not changed and not (r or a) and text and BANKISH.search(text) and h["routing"] not in in_text:
+        # the file talks about bank details but the model reported none, and the known account isn't in the text:
+        # don't assume nothing changed
+        out.append({"code": "bank_unread", "blocks": True,
+                    "text": "The invoice mentions bank details, but they couldn't be matched to the account on file. "
+                            "Check them against the vendor's record before paying."})
     if changed:
         new_bank = (bank.get("name") or "a new bank").replace(" (EXAMPLE)", "")
         out.append({"code": "bank_changed", "blocks": True, "last_invoice": h["last_invoice"], "last_date": h["date"],
