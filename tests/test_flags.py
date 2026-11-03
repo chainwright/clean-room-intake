@@ -129,3 +129,17 @@ class Round15(unittest.TestCase):
                         text="Bonneville Sheet Metal Supply BSM-24117 TOTAL $736.81\nRouting/Account: 000012345 / 000099998888\n"
                              "(formerly account ending 4471)")
         self.assertIn("bank_changed", [x["code"] for x in f])
+
+
+class Round16FullAccount(unittest.TestCase):
+    def test_same_ending_different_full_account_holds(self):
+        f = flags.check({"vendor": "Bonneville Sheet Metal Supply", "invoice_no": "BSM-24117", "total": 736.81, "pay_method": "ach",
+                         "bank": {"routing": "000012345", "account_last4": "4471"}},
+                        text="Bonneville Sheet Metal Supply BSM-24117 TOTAL $736.81 routing 000012345 account 000099994471")
+        self.assertIn("bank_changed", [x["code"] for x in f])
+
+    def test_the_full_account_on_file_pays(self):
+        f = flags.check({"vendor": "Bonneville Sheet Metal Supply", "invoice_no": "BSM-24117", "total": 736.81, "pay_method": "ach",
+                         "bank": {"routing": "000012345", "account_last4": "4471"}},
+                        text="Bonneville Sheet Metal Supply BSM-24117 TOTAL $736.81 routing 000012345 account 000031904471")
+        self.assertEqual(f, [])

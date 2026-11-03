@@ -12,10 +12,10 @@ from typing import Dict, List, Optional
 # Vendor history: what was paid before. In the demo it's seeded; in a real shop it comes from the AP system.
 HISTORY: Dict[str, dict] = {
     "granite peak refrigerants": {"last_invoice": "GPR-5520", "date": "09/30/2026", "total": 1284.00,
-                                  "bank": "Canyon State Bank (EXAMPLE)", "routing": "000067890", "account_last4": "2208",
+                                  "bank": "Canyon State Bank (EXAMPLE)", "routing": "000067890", "account_last4": "2208", "account": "000047712208",
                                   "domain": "granitepeak-refrig.example", "pay_method": "ach"},
     "bonneville sheet metal supply": {"last_invoice": "BSM-23980", "date": "09/26/2026", "total": 512.40,
-                                      "bank": "Mountain Ledger Bank (EXAMPLE)", "routing": "000012345", "account_last4": "4471",
+                                      "bank": "Mountain Ledger Bank (EXAMPLE)", "routing": "000012345", "account_last4": "4471", "account": "000031904471",
                                       "domain": "bonneville-sheetmetal.example", "remit_to": "2140 S 300 W, Salt Lake City, UT", "pay_method": "ach"},
 }
 
@@ -159,6 +159,11 @@ def check(fields: dict, sender: Optional[str] = None, text: str = "", notes: Opt
     for line in _digits(text).splitlines():
         if BANKISH.search(line) or PAYNUM.search(line):
             stray |= {n for n in re.findall(r"(?<!\d)(\d{6,17})(?!\d)", line) if n != h["routing"] and n[-4:] != h["account_last4"]}
+    # a full account number written out is compared in full, not by its last 4 digits (same ending, different account)
+    full = h.get("account")
+    if full:
+        stray |= {n for n in re.findall(r"(?<!\d)(\d{8,17})(?!\d)", _digits(text)) if n[-4:] == h["account_last4"] and n != full
+                  and n != h["routing"]}
     changed = (r and r != h["routing"]) or (a and a != h["account_last4"]) or bool(in_text - {h["routing"]}) \
         or bool(accts - {h["account_last4"]}) or bool(stray)  # a number in the file's own text that isn't the one on file
     if not changed and text and SPELLED.search(text) and (BANKISH.search(text) or NUMBERISH.search(text)):
