@@ -129,10 +129,9 @@ function finish() {
   refreshQueue(true);
 }
 
-function lived(j) {
-  const at = (k) => j.states.find((s) => s.state === k)?.at;
-  const a = at("sandbox_up") ?? j.states[0].at, b = at("destroyed") ?? a;
-  return Math.max(0, b - a).toFixed(2);
+function lived(j) {   // the container's own life, from its receipt (model calls happen outside the room)
+  const r = j.tries?.at(-1)?.receipt;
+  return r ? Math.max(0, r.destroyed - r.started).toFixed(2) : "0.00";
 }
 function stub(j) {
   const r = j.tries?.at(-1)?.receipt; if (!r) return "";
