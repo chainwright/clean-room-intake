@@ -21,7 +21,7 @@ from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import agent, flags
+from . import agent, devmode, flags
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INBOX = os.path.join(ROOT, "demo", "inbox")
@@ -50,7 +50,10 @@ def _work(job_id: str, name: str, data: bytes, sender: str):
             job["state"] = s
 
     try:
-        it = agent.run(name, data, on_state=on_state)
+        if devmode.ON:   # laptop UI work only: no walls, scripted model (see devmode.py)
+            it = agent.run(name, data, llm=devmode.fake_llm, cmd_for=devmode.local_cmd, on_state=on_state)
+        else:
+            it = agent.run(name, data, on_state=on_state)
         f = flags.check(it.fields, sender=sender or None)
         with LOCK:
             job.update(kind=it.kind, fields=it.fields, text=it.text, notes=it.flags,

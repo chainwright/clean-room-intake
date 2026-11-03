@@ -21,6 +21,9 @@ WATCH = {"socket.connect", "socket.getaddrinfo", "socket.gethostbyname", "urllib
          "os.system", "os.exec", "os.posix_spawn", "os.fork", "ctypes.dlopen", "open"}
 
 
+SENSITIVE = ("/etc/", "/proc/", "/sys/", "/root", "/home/", "/run/", "/var/run/")
+
+
 def emit(**kw):
     kw["t"] = round(time.monotonic() - T0, 4)
     sys.__stdout__.write(json.dumps(kw, default=str) + "\n")
@@ -31,11 +34,12 @@ def hook(event, args):
     if event not in WATCH:
         return
     if event == "open":
-        path, mode = str(args[0]), str(args[1]) if len(args) > 1 else "r"
-        # reading the input and Python's own files is normal; anything else is worth a line
-        if path.startswith((IN + "/", "/usr/lib/python", "/usr/local/lib/python")) or "w" not in mode and path.endswith(".pyc"):
+        path, mode = str(args[0]), str(args[1] or "r") if len(args) > 1 else "r"
+        writing = any(c in mode for c in "wax+")
+        # reading libraries and the input is normal; writing anywhere, or reading where secrets live, is an attempt
+        if path.startswith("/tmp/") or (not writing and not path.startswith(SENSITIVE)):   # /tmp is the scratch tmpfs
             return
-        emit(ev="attempt", what="open", detail=f"{path} ({mode})")
+        emit(ev="attempt", what="open", detail=f"{path} ({'write' if writing else 'read'})")
         return
     emit(ev="attempt", what=event, detail=repr(args)[:200])
 
