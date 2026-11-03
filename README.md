@@ -1,15 +1,83 @@
 # Clean Room Intake
 
-Open invoices from strangers without opening your business to them.
+**Open files from strangers without opening your business to them.**
 
-Every file is opened only inside a throwaway sandbox on Vultr: no network, no secrets, capped memory and time,
-destroyed afterwards. The clerk gets clean fields and a plain-text copy; the controller gets a receipt of what the
-file tried and what stopped it.
+Scanners tell you a file looks clean. Clean Room Intake opens it where it can't hurt you, and tells you what it tried.
+
+Every invoice is opened only inside a throwaway sandbox on Vultr: no network, no secrets, capped memory and time,
+destroyed afterwards. The clerk gets clean fields and a plain-text copy. The controller gets a receipt of what the
+file tried to do and what stopped it, plus the check that pays for itself: **the bank details on this invoice differ
+from the vendor's last one.**
+
+> Demo: ⟨public URL on Vultr⟩ · Video: ⟨link⟩ · Track 1, Blast Radius Zero
 
 ## Use case
+Marisol Reyes does accounts payable at a 40-person HVAC company in Salt Lake City. Every day she opens 30 to 80
+invoices from people she has never met: PDFs, phone scans, Word files, emails with attachments. Today she has two bad
+options: open everything on her own machine and hope, or retype from a preview and lose an hour.
+
+US businesses reported **$3.05 billion** lost to business email compromise in 2025 (FBI IC3, 2025 Internet Crime
+Report, p. 8). A changed bank account on an otherwise normal invoice is one of the oldest moves in that playbook.
+
+Clean Room Intake removes the choice:
+1. Marisol drops a file, or forwards the email.
+2. A fresh sandbox opens it on the other side of the glass; she watches it happen.
+3. She gets the vendor, invoice number, amount, due date and bank details as plain text, each with the page it came from.
+4. The sandbox is destroyed. The receipt stays.
+5. If the bank details changed, or the email came from a look-alike domain, **Send to pay list** is held until the
+   controller approves.
+
 ## Vultr services
+| Service | What it does here |
+|---|---|
+| **Cloud Compute VM** (Ubuntu 24.04) | The web app and the orchestrator: queue, sandbox lifecycle, receipts, flags. The control layer. |
+| **Docker + gVisor (`runsc`) on that VM** | One throwaway container per file, behind a user-space kernel. |
+| **Serverless Inference** (OpenAI-compatible, `api.vultrinference.com/v1`) | Every model call: writing the extraction step, fixing it after an error, reading the fields. ⟨model id⟩ |
+
 ## Architecture
-## Containment (with numbers)
+```
+ browser ──► FastAPI on the Vultr VM (orchestrator, holds the inference key)
+                │
+                │ 1. ask Serverless Inference: "write extract(path) for this kind of file"
+                │ 2. docker run --runtime=runsc --network=none --read-only ... (file + step, read-only)
+                │        └─ runner.py: runs the step, records every attempt (socket, getenv, exec, open)
+                │ 3. text comes back out; error? → back to the model, max 2 retries
+                │ 4. ask Serverless Inference for the fields, text marked as UNTRUSTED data
+                │ 5. flags: vendor history (bank details, sender domain)
+                └─ 6. container removed; receipt stored
+```
+The model never sees the file, only the text that came out of the sandbox. The sandbox never sees the key.
+
+## Containment (the walls, with numbers)
+| Wall | Setting | Checked on the VM (`deploy/containment_check.sh`) |
+|---|---|---|
+| Kernel | gVisor `runsc` between the file and the host | ⟨dmesg shows gVisor⟩ |
+| Network | `--network=none` | ⟨urlopen fails⟩ |
+| Secrets | no environment passed in; the key stays in `/etc/cleanroom.env` for the orchestrator only | ⟨0 variables with KEY⟩ |
+| Filesystem | `--read-only`, 64 MB tmpfs, input mounted read-only | ⟨write to / fails⟩ |
+| Memory | 512 MB, no swap | ⟨10 GB string killed⟩ |
+| Processes | 128 pids | ⟨fork loop capped⟩ |
+| Time | 30 s, then `docker rm -f` | ⟨no leftovers⟩ |
+| Privileges | `--cap-drop=ALL`, `no-new-privileges`, user 65534 | |
+
+The receipt shows both sides: what the file tried (from inside), and which wall stopped it (from outside).
+
 ## Run locally
-## Demo URL
+```
+python3 -m venv .venv && .venv/bin/pip install fastapi uvicorn openai python-multipart pymupdf python-docx pillow
+.venv/bin/python demo/make_files.py           # the sample inbox
+.venv/bin/python -m unittest discover tests   # logic tests (the walls are tested on the VM)
+docker build -t cleanroom-runner:1 sandbox/   # needs Docker + gVisor for real containment
+VULTR_INFERENCE_KEY=... CLEANROOM_MODEL=... .venv/bin/uvicorn app.web:app
+```
+
 ## What's simulated
+- The companies, people, invoices and bank numbers are fictional (RFC 2606 `.example` domains, `555-01xx` phones,
+  bank numbers starting `0000`).
+- **`jordan_river_JRP-7781_TESTFILE.docx` is our own harmless test file.** It carries hidden instruction-like text
+  and an external image link to `collect.attacker.example`, a reserved name that resolves nowhere.
+- The vendor history (last invoice and bank details per vendor) is seeded; in a real shop it comes from the AP system.
+- Everything else is live: the sandbox, its caps, its destruction, and every model call.
+
+## Licence
+MIT
