@@ -24,37 +24,19 @@
   "error": "",
   "attempts": [],
   "killed_by": "",
-  "lived_s": 0.9
+  "lived_s": 1.01
  },
  {
   "file": "damaged_BSM-24117_copy.pdf",
-  "state": "extracted",
-  "fields": {
-   "vendor": null,
-   "invoice_no": null,
-   "invoice_date": null,
-   "due_date": null,
-   "total": null,
-   "currency": "USD",
-   "pay_method": "unknown",
-   "bank": {
-    "name": null,
-    "routing": null,
-    "account_last4": null
-   },
-   "remit_to": null,
-   "sender_email": null
-  },
-  "flags": [
-   "incomplete",
-   "new_vendor"
-  ],
+  "state": "failed",
+  "fields": {},
+  "flags": [],
   "notes": [],
   "tries": 3,
-  "error": "",
+  "error": "Couldn't read this file after retries. Ask the vendor for a new copy.",
   "attempts": [],
   "killed_by": "",
-  "lived_s": 1.91
+  "lived_s": 3.72
  },
  {
   "file": "GPR-5561.docx",
@@ -84,7 +66,7 @@
   "error": "",
   "attempts": [],
   "killed_by": "",
-  "lived_s": 0.9
+  "lived_s": 0.95
  },
  {
   "file": "jordan_river_JRP-7781_TESTFILE.docx",
@@ -116,7 +98,7 @@
   "error": "",
   "attempts": [],
   "killed_by": "",
-  "lived_s": 0.95
+  "lived_s": 1.35
  },
  {
   "file": "red_butte_RB-0932_scan.jpg",
@@ -134,7 +116,7 @@
     "routing": null,
     "account_last4": null
    },
-   "remit_to": "PO Box 5521",
+   "remit_to": "PO Box 5521, SEC UL",
    "sender_email": null
   },
   "flags": [
@@ -145,7 +127,7 @@
   "error": "",
   "attempts": [],
   "killed_by": "",
-  "lived_s": 12.76
+  "lived_s": 5.33
  },
  {
   "file": "wasatch_valve_WVS-3310_TESTFILE.html",
@@ -178,6 +160,6 @@
    "browser https://1.1.1.1/cdn-cgi/trace?d=Invoice%20WVS-3310 (ERR_ADDRESS_UNREACHABLE)"
   ],
   "killed_by": "",
-  "lived_s": 7.79
+  "lived_s": 8.28
  }
 ]
