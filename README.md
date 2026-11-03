@@ -32,7 +32,7 @@ Clean Room Intake removes the choice:
 |---|---|
 | **Cloud Compute VM** (Ubuntu 24.04) | The web app and the orchestrator: queue, sandbox lifecycle, receipts, flags. The control layer. |
 | **Docker + gVisor (`runsc`) on that VM** | One throwaway container per file, behind a user-space kernel. |
-| **Serverless Inference** (OpenAI-compatible, `api.vultrinference.com/v1`) | Every model call: writing the extraction step, fixing it after an error, reading the fields. Model: `deepseek-v4.1-flash-1017` (picked from the live `/v1/models` list: ~1.3 s per call, clean code output). |
+| **Serverless Inference** (OpenAI-compatible, `api.vultrinference.com/v1`) | Every model call: writing the extraction step, fixing it after an error, reading the fields. Model: `mimo-v2.6-flash`, picked from the live `/v1/models` list by measuring our real prompt on the VM: it writes the extraction step in ~3 s (≈900 tokens) where the reasoning-heavy models took 24–80 s (7k–33k tokens); reading the fields takes ~1 s. |
 
 ## Architecture
 ```

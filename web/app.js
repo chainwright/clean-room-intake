@@ -177,13 +177,26 @@ function lived(j) {   // the container's own life, from its receipt (model calls
   const r = j.tries?.at(-1)?.receipt;
   return r ? Math.max(0, r.destroyed - r.started).toFixed(2) : "0.00";
 }
+// the record as the room left it: exit codes, errors, every attempt verbatim, the code that ran. Nothing summarised.
+function rawRecord(j) {
+  const parts = (j.tries || []).map((t, i) => {
+    const r = t.receipt, life = Math.max(0, r.destroyed - r.started).toFixed(2);
+    const head = `# room ${r.room} · try ${i + 1} · exit ${r.exit_code ?? "?"}${r.killed_by ? ` (killed: ${r.killed_by})` : ""} · lived ${life} s`;
+    const err = r.error ? `\n! ${r.error}` : "";
+    const att = (r.attempts || []).length ? "\n" + r.attempts.map((a) => `+${Number(a.t || 0).toFixed(3)}s ${a.what} ${a.detail}`).join("\n") : "\n(no attempts recorded)";
+    const code = j.kind === "breakin" ? "" : `\n--- step the model wrote (Vultr Serverless Inference) ---\n${t.step || ""}`;
+    return head + err + att + code;
+  });
+  return `<details class="raw"><summary>raw record</summary><pre>${esc(parts.join("\n\n"))}</pre></details>`;
+}
+
 function breakinStub(j) {
   const ps = j.probes || [], held = ps.filter((p) => p.held).length, r = j.tries?.[0]?.receipt; if (!r) return "";
   const rooms = j.tries.map((t) => `${t.receipt.room.toUpperCase()} · lived ${Math.max(0, t.receipt.destroyed - t.receipt.started).toFixed(2)} s · exit ${t.receipt.exit_code}`);
   return `<div class="stub"><div class="st ${held === ps.length ? "stopped" : "got"}">${held} OF ${ps.length} STOPPED</div>Break-in test · our attack script<hr>` +
     `NET ${esc(r.network)} · FS read-only<br>MEM ${r.caps.memory_mb}&nbsp;MB · CPU&nbsp;${r.caps.cpus} · ${r.caps.seconds}&nbsp;s<br>secrets inside: ${r.secrets_inside} · runtime ${esc(r.runtime)}<hr>` +
     ps.map((p) => p.held ? `<span class="x">✕ ${esc(p.attack)}</span>` : `<span class="got">⚠ ${esc(p.attack)} · got through</span>`).join("<br>") +
-    `<hr>${rooms.map(esc).join("<br>")}<br>both rooms destroyed ✓</div>`;
+    `<hr>${rooms.map(esc).join("<br>")}<br>both rooms destroyed ✓${rawRecord(j)}</div>`;
 }
 function stub(j) {
   if (j.kind === "breakin") return breakinStub(j);
@@ -199,7 +212,7 @@ function stub(j) {
   return `<div class="stub">${st}No. ${esc(r.room.toUpperCase())}<br>${esc(j.file)}<hr>` +
     `NET ${esc(r.network)} · FS read-only<br>MEM ${r.caps.memory_mb}&nbsp;MB · CPU&nbsp;${r.caps.cpus} · ${r.caps.seconds}&nbsp;s<br>secrets inside: ${r.secrets_inside} · runtime ${esc(r.runtime)}<hr>` +
     (tried.length ? tried.map((d) => `<span class="x">✕ ${esc(short(d))}</span>`).join("<br>") : "Attempts stopped: none") +
-    `<hr>room lived ${lived(j)} s · destroyed ✓${j.tries.length > 1 ? ` · ${j.tries.length} tries` : ""}</div>`;
+    `<hr>room lived ${lived(j)} s · destroyed ✓${j.tries.length > 1 ? ` · ${j.tries.length} tries` : ""}${rawRecord(j)}</div>`;
 }
 
 // ---------- the slip (left) ----------
