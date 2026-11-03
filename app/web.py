@@ -22,7 +22,7 @@ from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import agent, devmode, flags
+from . import agent, devmode, flags, sandbox
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INBOX = os.path.join(ROOT, "demo", "inbox")
@@ -137,6 +137,77 @@ async def intake(req: Request, file: Optional[UploadFile] = File(default=None)):
         return {"id": _start(name, f.read())}
 
 
+BREAKIN = os.path.join(ROOT, "sandbox", "breakin.py")
+
+
+def settle(rooms: list) -> list:
+    """Attacks meant to get a room killed (memory, process flood) are judged from outside: the room's exit code and
+    the forks its own audit hook recorded, not a promise from inside. Repeated lines for one attack collapse to the
+    last word on it."""
+    last = {}
+    for r in rooms:
+        for p in r["probes"]:
+            last[p["attack"]] = dict(p, room=r["room"])
+    out = list(last.values())
+    by_room = {r["room"]: r for r in rooms}
+    for p in out:
+        r = by_room[p["room"]]
+        ended = r.get("exit_code") not in (0, None) or bool(r.get("killed_by"))
+        if p["attack"] == "eat the memory" and p["held"] is None:
+            killed = r.get("killed_by") == "memory" or r.get("exit_code") == 137
+            p.update(outcome=f"room killed at {r['caps']['memory_mb']} MB (exit 137)" if killed
+                     else "the room was not killed", held=killed)
+        if p["attack"] == "flood the server" and p["held"] is None:
+            forks = sum(1 for a in r["attempts"] if a.get("what") == "os.fork")
+            p.update(outcome=f"room stopped after {forks} processes (exit {r.get('exit_code')})" if ended
+                     else f"{forks} processes, room still up", held=ended and forks < 500)
+    return out
+
+
+def _breakin_work(job_id: str):
+    job = JOBS[job_id]
+
+    def state(s):
+        with LOCK:
+            job["states"].append({"state": s, "at": time.time()})
+            job["state"] = s
+
+    try:
+        code = open(BREAKIN).read()
+        rooms, tries = [], []
+        for word in (b"walls", b"flood"):              # two fresh rooms: each of the two big attacks ends its room
+            state("sandbox_up"); state("opening")
+            if devmode.ON:
+                rec = sandbox.run(word, code, sandbox.Caps(seconds=20), cmd_for=devmode.local_cmd)
+            else:
+                rec = sandbox.run(word, code)
+            r = rec.as_dict()
+            rooms.append(r); tries.append({"step": code, "receipt": r})
+            state("breakin")
+        probes = settle(rooms)
+        state("destroyed")
+        with LOCK:
+            job.update(kind="breakin", tries=tries, probes=probes, done=True, fields={},
+                       error="" if probes else "the test didn't report back")
+    except Exception as e:
+        with LOCK:
+            job.update(error=f"{type(e).__name__}: {e}"[:300], state="failed", done=True)
+
+
+@app.post("/api/breakin")
+async def breakin(req: Request):
+    """Run our own attack script in a fresh room with the same walls. No model involved."""
+    _admit(_visitor(req))
+    jid = uuid.uuid4().hex[:10]
+    with LOCK:
+        JOBS[jid] = {"id": jid, "file": "break-in test (our attack script)", "sender": "", "state": "queued",
+                     "states": [{"state": "queued", "at": time.time()}], "fields": {}, "flags": [], "notes": [],
+                     "tries": [], "probes": [], "done": False, "paid": False, "approved": False,
+                     "created": time.time(), "kind": "breakin"}
+    threading.Thread(target=_breakin_work, args=(jid,), daemon=True).start()
+    return {"id": jid}
+
+
 @app.get("/api/intake/{jid}")
 def get_intake(jid: str):
     with LOCK:
@@ -164,7 +235,8 @@ def list_intakes():
         return [{k: j[k] for k in ("id", "file", "state", "done", "paid", "approved", "created")} |
                 {"vendor": (j["fields"] or {}).get("vendor"), "total": (j["fields"] or {}).get("total"),
                  "flagged": bool(j["flags"]), "blocked": any(t["receipt"]["attempts"] for t in j["tries"]),
-                 "stopped": _stopped(j)}
+                 "stopped": _stopped(j), "kind": j.get("kind", ""),
+                 "held": sum(1 for p in j.get("probes", []) if p.get("held")), "probes": len(j.get("probes", []))}
                 for j in sorted(JOBS.values(), key=lambda j: -j["created"])]
 
 

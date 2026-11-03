@@ -48,6 +48,7 @@ class Receipt:
     exit_code: Optional[int] = None
     killed_by: str = ""                       # "", "timeout", "memory"
     attempts: List[dict] = field(default_factory=list)
+    probes: List[dict] = field(default_factory=list)     # break-in test only: one line per attack, with its outcome
     result: Optional[dict] = None
     error: str = ""
 
@@ -71,6 +72,8 @@ def parse_lines(out: str, r: Receipt) -> None:
             continue
         if ev.get("ev") == "attempt":
             r.attempts.append({k: ev[k] for k in ("what", "detail", "t") if k in ev})
+        elif ev.get("ev") == "probe":
+            r.probes.append({k: ev.get(k) for k in ("attack", "how", "outcome", "held", "t")})
         elif ev.get("ev") == "result":
             r.result = {k: ev.get(k) for k in ("fields", "text", "notes")}
         elif ev.get("ev") == "error":

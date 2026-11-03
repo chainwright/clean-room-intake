@@ -115,8 +115,12 @@ def run(filename: str, data: bytes, llm: Optional[Callable] = None, cmd_for=sand
         return it
 
     state("extracting")
-    if INSTRUCTION_LIKE.search(it.text):
-        it.flags.append("Instruction-like text found inside the document. Treated as data and ignored.")
+    m = INSTRUCTION_LIKE.search(it.text)
+    if m:
+        a = max(it.text.rfind("\n", 0, m.start()) + 1, m.start() - 120)
+        b = it.text.find("\n", m.end()); b = len(it.text) if b < 0 else min(b, m.end() + 160)
+        quote = " ".join(it.text[a:b].split())[:240]
+        it.flags.append(f"Hidden instructions found inside the document. Treated as data and ignored. “{quote}”")
     state("reading_fields")                                          # the model reads the text that came out
     raw = _chat(FIELDS_SYSTEM, f"<document>\n{it.text[:12000]}\n</document>", llm)
     m = re.search(r"\{.*\}", raw, re.S)

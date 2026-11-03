@@ -52,7 +52,7 @@ header .count{grid-column:2;font:15px 'IBM Plex Mono',monospace;color:var(--ink)
 .log.shred{animation:shred .6s steps(6) forwards}@keyframes shred{to{clip-path:inset(0 0 100% 0);opacity:.2}}
 .test{font:12px 'IBM Plex Mono',monospace;color:#c9c3b6;margin-bottom:8px}.test:not(:empty){display:inline-block;border:1px solid #c9c3b6;padding:1px 6px}
 .drawer{position:absolute;z-index:3;left:-2px;top:46%;background:var(--brass-l);color:#1d1f23;font:600 12px 'IBM Plex Mono',monospace;padding:8px 12px;border-radius:0 4px 4px 0;transform:translateX(-110%);transition:transform .5s}
-.drawer.out{transform:translateX(0)}
+.drawer.out{transform:translateX(-100%)}
 .stub{margin:4px 0 0 24px;background:#fbfaf6;color:var(--ink);font:13px/1.6 'IBM Plex Mono',monospace;padding:12px 14px 14px;max-width:460px;position:relative;overflow-wrap:anywhere;
   border-bottom:2px dashed #9a948a;animation:drop .3s ease-out}
 .stub .x{color:var(--red)}.stub hr{border:0;border-top:1px dashed #bbb;margin:6px 0}
@@ -69,3 +69,9 @@ header .count{grid-column:2;font:15px 'IBM Plex Mono',monospace;color:var(--ink)
 .stub b.held{color:var(--brass)}
 
 .deny{margin:8px 0 0;padding:8px 12px;border-left:3px solid #b5382c;background:#fbeae7;color:#7a2219;font-size:15px}
+
+.bi{display:block;margin-top:6px;font-size:15px;color:var(--muted)}
+.bi button{font:inherit;color:var(--red);background:none;border:0;padding:0;text-decoration:underline;cursor:pointer;font-weight:600}
+.log .got,.stub .got,.gotv{color:#e8a33d;font-weight:700}.st.got{color:#b4651a}.stamp.got{border-color:#b4651a;color:#b4651a}
+.f .how{color:var(--muted);font-size:14px}
+.note .quote{margin-top:6px;font:13px/1.45 "IBM Plex Mono",monospace;color:#6b4a12;background:#fff8e6;border:1px dashed #d8b46a;padding:6px 8px}

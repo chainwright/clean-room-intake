@@ -121,3 +121,29 @@ class Visitor(unittest.TestCase):
 
     def test_direct_client_cannot_spoof(self):
         self.assertEqual(web._visitor(self.req("198.51.100.4", "1.2.3.4")), "198.51.100.4")
+
+
+class BreakIn(unittest.TestCase):
+    """Outcomes of the attacks that end a room are read from outside, never assumed."""
+
+    def room(self, name, exit_code, killed_by="", probes=(), forks=0):
+        return {"room": name, "exit_code": exit_code, "killed_by": killed_by, "caps": {"memory_mb": 512},
+                "probes": list(probes), "attempts": [{"what": "os.fork"}] * forks}
+
+    def test_memory_counts_only_if_the_room_was_killed(self):
+        mem = {"attack": "eat the memory", "how": "", "outcome": "allocating…", "held": None, "t": 0.1}
+        held = web.settle([self.room("a", 137, "memory", [mem])])[0]
+        self.assertTrue(held["held"]); self.assertIn("exit 137", held["outcome"])
+        open_ = web.settle([self.room("a", 0, "", [dict(mem)])])[0]
+        self.assertFalse(open_["held"])
+
+    def test_flood_is_counted_from_the_rooms_own_record(self):
+        fl = {"attack": "flood the server", "how": "", "outcome": "starting…", "held": None, "t": 0.1}
+        p = web.settle([self.room("b", 2, "", [fl], forks=51)])[0]
+        self.assertTrue(p["held"]); self.assertIn("51 processes", p["outcome"])
+        p = web.settle([self.room("b", 0, "", [dict(fl)], forks=500)])[0]
+        self.assertFalse(p["held"])
+
+    def test_a_wall_that_failed_is_shown_as_failed(self):
+        got = {"attack": "call home by IP", "how": "", "outcome": "connected", "held": False, "t": 0.1}
+        self.assertFalse(web.settle([self.room("a", 0, "", [got])])[0]["held"])

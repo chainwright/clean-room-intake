@@ -41,6 +41,10 @@ async function loadSamples() {
   $("samples").onclick = (e) => { e.stopPropagation(); const s = e.target.dataset.s; if (s) start({ sample: s }); };
 }
 const drop = $("drop");
+$("breakin").onclick = async (e) => {
+  e.stopPropagation();
+  try { follow((await api("/api/breakin", { method: "POST" })).id); } catch (err) { deny(err); }
+};
 drop.onclick = (e) => { if (e.target === drop) $("file").click(); };
 $("file").onchange = (e) => e.target.files[0] && upload(e.target.files[0]);
 drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("over"); };
@@ -80,16 +84,36 @@ async function poll(id) {
 
 // every step the page will show, in order: states, with the file's attempts while it was open
 function beats(j) {
+  if (j.kind === "breakin") return breakinBeats(j);
   const out = [], tried = distinct(j);
   for (const s of j.states.slice(1)) {
     if (s.state === "extracting") {
       tried.forEach((d) => out.push({ kind: "attempt", text: d, at: s.at }));
-      if ((j.notes || []).some((n) => /Instruction-like/.test(n))) out.push({ kind: "state", note: "instructions inside the file · read as data, not obeyed", at: s.at });
+      const hid = (j.notes || []).find((n) => /instruction/i.test(n));
+      if (hid) out.push({ kind: "state", note: "hidden instructions inside the file · read as data, not obeyed", at: s.at });
     }
     out.push({ kind: "state", state: s.state, at: s.at });
   }
   return out;
 }
+
+// break-in test: each room's attacks land before that room is killed; the outcome is what really happened
+function breakinBeats(j) {
+  const out = [], rooms = (j.tries || []).map((t) => t.receipt.room);
+  let k = 0;
+  for (const s of j.states.slice(1)) {
+    if (s.state === "breakin") {
+      const room = rooms[k], r = j.tries[k]?.receipt; k++;
+      (j.probes || []).filter((p) => p.room === room).forEach((p) => out.push({ kind: "attempt", probe: p, at: s.at }));
+      if (r) out.push({ kind: "state", state: "room_end", note2: r.exit_code === 137 ? `room killed by its own memory cap (exit 137) · next room`
+        : r.exit_code ? `room stopped by its own caps (exit ${r.exit_code})` : "room closed", at: s.at });
+      continue;
+    }
+    out.push({ kind: "state", state: s.state, at: s.at });
+  }
+  return out;
+}
+const probeLine = (p) => `${p.attack} · ${p.outcome}`;
 
 function tick() {
   const v = view; if (!v || !v.j) return;
@@ -109,7 +133,13 @@ function render() {
   const shown = v.beats.slice(0, v.shown), tried = shown.filter((b) => b.kind === "attempt");
   let last = null, html = "";
   for (const b of shown) {
+    if (b.kind === "attempt" && b.probe) {
+      html += `<span class="t">${b.probe.t != null ? "+" + Number(b.probe.t).toFixed(2) + " s" : ""}</span>` +
+        (b.probe.held ? `<span class="m x">✕ ${esc(probeLine(b.probe))}</span>` : `<span class="m got">⚠ ${esc(probeLine(b.probe))} · GOT THROUGH</span>`);
+      continue;
+    }
     if (b.kind === "attempt") { html += `<span class="t"></span><span class="m x">✕ ${esc(b.text)}</span>`; continue; }
+    if (b.note2) { html += `<span class="t"></span><span class="m dim">${esc(b.note2)}</span>`; continue; }
     if (b.note) { html += `<span class="t"></span><span class="m n">✕ ${esc(b.note)}</span>`; continue; }
     const t = rel(b.at), msg = b.state === "blocked" ? `fields read · ${tried.length} attempt${tried.length === 1 ? "" : "s"} stopped` : (WORDS[b.state] || b.state);
     html += `<span class="t">${t === last ? "" : t}</span><span class="m">${esc(msg)}</span>`;
@@ -124,7 +154,7 @@ function render() {
     $("pins").innerHTML = xs.map((x, i) => `<div class="pin ${i === xs.length - 1 ? "hit" : ""}" style="top:${x.offsetTop + log.offsetTop + 4}px"></div>`).join("");
     const g = document.querySelector(".glass"); g.classList.add("hit"); setTimeout(() => g.classList.remove("hit"), 250);
   }
-  $("test").textContent = /TESTFILE/.test(j.file) ? "TEST FILE · ours, harmless" : "";
+  $("test").textContent = j.kind === "breakin" ? "BREAK-IN TEST · our own attack script" : /TESTFILE/.test(j.file) ? "TEST FILE · ours, harmless" : "";
   const reached = new Set(shown.filter((b) => b.kind === "state").map((b) => b.state).concat(["queued"]));
   if (reached.has("extracting") && j.state !== "failed") $("drawer").classList.add("out");
   renderSlip(j, reached, v.filled);
@@ -147,11 +177,23 @@ function lived(j) {   // the container's own life, from its receipt (model calls
   const r = j.tries?.at(-1)?.receipt;
   return r ? Math.max(0, r.destroyed - r.started).toFixed(2) : "0.00";
 }
+function breakinStub(j) {
+  const ps = j.probes || [], held = ps.filter((p) => p.held).length, r = j.tries?.[0]?.receipt; if (!r) return "";
+  const rooms = j.tries.map((t) => `${t.receipt.room.toUpperCase()} · lived ${Math.max(0, t.receipt.destroyed - t.receipt.started).toFixed(2)} s · exit ${t.receipt.exit_code}`);
+  return `<div class="stub"><div class="st ${held === ps.length ? "stopped" : "got"}">${held} OF ${ps.length} STOPPED</div>Break-in test · our attack script<hr>` +
+    `NET ${esc(r.network)} · FS read-only<br>MEM ${r.caps.memory_mb}&nbsp;MB · CPU&nbsp;${r.caps.cpus} · ${r.caps.seconds}&nbsp;s<br>secrets inside: ${r.secrets_inside} · runtime ${esc(r.runtime)}<hr>` +
+    ps.map((p) => p.held ? `<span class="x">✕ ${esc(p.attack)}</span>` : `<span class="got">⚠ ${esc(p.attack)} · got through</span>`).join("<br>") +
+    `<hr>${rooms.map(esc).join("<br>")}<br>both rooms destroyed ✓</div>`;
+}
 function stub(j) {
+  if (j.kind === "breakin") return breakinStub(j);
   const r = j.tries?.at(-1)?.receipt; if (!r) return "";
   const tried = distinct(j);
   const held = (j.flags || []).some((x) => x.blocks) && !j.approved;
-  const st = held ? `<div class="st held">HOLD · needs you</div>` : tried.length ? `<div class="st stopped">${tried.length} STOPPED</div>` : `<div class="st clean">clean</div>`;
+  const flagged = (j.flags || []).some((x) => x.blocks), hidden = (j.notes || []).some((n) => /instruction/i.test(n));
+  const st = held ? `<div class="st held">HOLD · needs you</div>` : flagged ? `<div class="st held">APPROVED AFTER CALL</div>`
+    : tried.length ? `<div class="st stopped">${tried.length} STOPPED</div>` : hidden ? `<div class="st held">HIDDEN INSTRUCTIONS · IGNORED</div>`
+    : `<div class="st clean">clean</div>`;
   const short = (d) => d.replace(/^the page tried to send its title to (\S+)/, "page title → $1").replace(/^the page tried to load an image from (\S+)/, "image ← $1")
     .replace(/^the page tried to reach |^tried to (reach|read) /, "").replace(" · nothing there", " · not there");
   return `<div class="stub">${st}No. ${esc(r.room.toUpperCase())}<br>${esc(j.file)}<hr>` +
@@ -186,7 +228,20 @@ function holdHtml(j) {
   return `<div class="hold"><b>HOLD</b> · ${parts.join("<br>")} Call ${esc(vendor.split(" ").slice(0, 2).join(" "))} on the number you have on file.</div>`;
 }
 
+function renderBreakinSlip(j, filled) {
+  const el = $("slip"), ps = j.probes || [], held = ps.filter((p) => p.held).length;
+  const rows = !filled ? `<div class="f ghost"><span class="k">attacks</span><span class="v">·</span></div>`
+    : ps.map((p, i) => `<div class="f fill" style="animation-delay:${i * 80}ms"><span class="k">${esc(p.attack)}</span>` +
+      `<span class="v ${p.held ? "" : "gotv"}">${p.held ? "stopped" : "GOT THROUGH"} · <span class="how">${esc(p.how)}</span></span></div>`).join("");
+  const stamp = filled ? `<div class="stamp ${held === ps.length ? "" : "got"}">${held} OF ${ps.length}<br>STOPPED AT THE GLASS</div>` : "";
+  el.className = "slip";
+  el.innerHTML = stamp + `<h2>${filled ? "Break-in test" : "Attacking the room…"}</h2>` +
+    `<div class="sub">Our own attack script, run in fresh rooms with exactly the walls a stranger's file gets. No model involved.</div>` +
+    (filled ? `<div class="tried">${held === ps.length ? `Every attack stopped at the glass. Nothing reached the server, the network or the key.` : `${ps.length - held} attack${ps.length - held === 1 ? "" : "s"} got through. See the receipt.`}</div>` : "") + rows;
+}
+
 function renderSlip(j, reached, filled) {
+  if (j.kind === "breakin") return renderBreakinSlip(j, filled);
   const f = j.fields || {}, el = $("slip");
   const MARKS = [["queued", "RECEIVED"], ["opening", "OPENED IN ROOM"], ["extracting", "COPIED AS TEXT"], ["destroyed", "DESTROYED"]];
   const phase = filled ? "done" : "room";
@@ -218,7 +273,10 @@ function renderSlip(j, reached, filled) {
   const fields = !filled ? ["Amount", "Invoice", "Due", "Pay by"].map((k) => `<div class="f ghost"><span class="k">${k}</span><span class="v">·</span></div>`).join("")
     : rows.filter(([, v]) => v).map(([k, v, c], i) =>
     `<div class="f fill" style="animation-delay:${i * 80}ms"><span class="k">${k}</span><span class="v ${c === "amt" ? "amt" : ""}">${c === "raw" ? v : esc(v)}</span></div>`).join("");
-  const notes = !filled ? "" : (j.notes || []).map((n) => `<div class="note">${esc(n)}</div>`).join("");
+  const notes = !filled ? "" : (j.notes || []).map((n) => {
+    const q = /“([^”]+)”/.exec(n);                     // the hidden text itself, quoted, so nobody has to take our word for it
+    return `<div class="note">${esc(n.replace(/\s*“[^”]+”/, ""))}${q ? `<div class="quote">${esc(q[1])}</div>` : ""}</div>`;
+  }).join("");
   const btn = !filled ? "" : j.paid ? `<div class="note">On the pay list.</div>`
     : held ? `<button class="btn" disabled>Waiting for controller</button><a class="btn ghost" href="#receipts">Open controller receipts</a>`
     : j.state === "failed" ? "" : `<button class="btn" id="pay">Send to pay list</button>`;
@@ -236,14 +294,18 @@ async function refreshQueue(flash) {
   const items = await api("/api/intakes"), seen = new Set(), latest = [];
   for (const i of items) if (!seen.has(i.file)) { seen.add(i.file); latest.push(i); }
   $("queue").innerHTML = latest.slice(0, 6).map((i) => {
-    const word = !i.done ? "in the room…" : i.flagged && !i.approved ? "HOLD" : i.stopped ? `${i.stopped} stopped` : i.paid ? "on the pay list" : "ready";
+    const word = !i.done ? "in the room…" : i.kind === "breakin" ? `${i.held} of ${i.probes} stopped`
+      : i.flagged && !i.approved ? "HOLD" : i.stopped ? `${i.stopped} stopped` : i.paid ? "on the pay list" : "ready";
     const cls = word === "HOLD" ? "held" : /stopped/.test(word) ? "stopped" : "";
+    if (i.kind === "breakin") return `<div class="chip ${i.id === current ? "on" : ""}" data-id="${i.id}"><span class="vn">Break-in test</span>&nbsp;·&nbsp;<span class="w ${cls}">${word}</span></div>`;
     return `<div class="chip ${i.id === current ? "on" : ""}" data-id="${i.id}"><span class="vn">${esc(i.vendor || label(i.file))}</span>` +
       `${i.total != null ? "&nbsp;·&nbsp;" + money(i.total) : ""}&nbsp;·&nbsp;<span class="w ${cls}">${word}</span></div>`;
   }).join("");
   $("queue").onclick = (e) => { const id = e.target.closest(".chip")?.dataset.id; if (id) follow(id, true); };
-  const opened = items.filter((i) => i.done).length, c = $("count");
-  c.textContent = opened ? `${opened} file${opened === 1 ? "" : "s"} opened · 0 got out` : "";
+  const done = items.filter((i) => i.done), files = done.filter((i) => i.kind !== "breakin").length, c = $("count");
+  const stopped = done.reduce((n, i) => n + (i.kind === "breakin" ? i.held : i.stopped), 0);
+  const got = done.reduce((n, i) => n + (i.kind === "breakin" ? i.probes - i.held : 0), 0);   // counted, never assumed
+  c.textContent = done.length ? `${files} file${files === 1 ? "" : "s"} opened · ${stopped} attempt${stopped === 1 ? "" : "s"} stopped · ${got} got out` : "";
   if (flash) { c.classList.remove("flash"); void c.offsetWidth; c.classList.add("flash"); }
 }
 

@@ -20,6 +20,7 @@
   <section class="desk">
     <div class="label">Your desk · safe copy here</div>
     <div class="drop" id="drop">Drop an invoice here (it's opened in the room on the right, never on this computer), or try:<span id="samples"></span>
+      <span class="bi">or <button id="breakin" type="button">try to break the room</button> (our own attack script, the same walls)</span>
       <input type="file" id="file" hidden></div>
     <div class="queue" id="queue"></div>
     <div id="slip" class="empty">Pick a file. Its fields come back through the drawer as text.</div>
@@ -29,7 +30,7 @@
     <div class="drawer" id="drawer">⇦ only text</div>
     <div class="label">The room · gVisor sandbox on Vultr</div>
     <div class="test" id="test"></div>
-    <div class="log" id="log"><span class="dim">The room is empty. Every file gets a fresh one, and it's destroyed afterwards.</span></div>
+    <div class="log" id="log"><span class="t"></span><span class="m dim">The room is empty. Every file gets a fresh one, and it's destroyed afterwards.</span></div>
     <div id="stub"></div>
   </section>
 </div>
