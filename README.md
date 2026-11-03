@@ -91,14 +91,21 @@ VULTR_INFERENCE_KEY=... CLEANROOM_MODEL=... .venv/bin/uvicorn app.web:app
   from the file sent) and the receipt shows they answer.
 - **The break-in test (`sandbox/breakin.py`) is our own attack script**, run in two fresh rooms with exactly the walls a
   file gets: read keys from the environment, open password/key files, write to `/`, look up a name, connect to an IP,
-  reach Vultr's metadata service (169.254.169.254), reach the server itself through Docker's bridge (172.17.0.1:22),
+  reach Vultr's metadata service (169.254.169.254), reach the server itself through Docker's bridge (172.17.0.1:22), read which kernel it talks to,
   `setuid(0)`, grab 1 GB, fork 500 processes. The two attacks that end a room are judged from outside (exit code, and
   the forks the room's own audit hook recorded).
-  **Control run** (`deploy/breakin_control.py` → `docs/breakin_walls_off.json`): the same script in an ordinary
-  container with the walls down (runc instead of gVisor, Docker's default network, writable root filesystem; the image's
-  non-root user and the memory/process caps kept) lets 5 of 10 through: the write to disk, the name lookup, the IP
-  connection, Vultr's metadata service and the server itself. In the room all 10 are stopped, so those five are stopped
-  by the room's walls, not by luck.
+  **Control runs** (`deploy/breakin_control.py` → `docs/breakin_controls.json`, script sha256 recorded): the same 11
+  attacks in three set-ups, all keeping the image's non-root user and the 512 MB / 128-process caps:
+
+  | set-up | got through |
+  |---|---|
+  | the room: gVisor, no network, read-only, no capabilities | 0 of 11 |
+  | an ordinary container (runc) with the same network/disk/capability walls | 1 of 11: it sees the server's own kernel |
+  | walls down: runc, Docker's default network, writable root filesystem | 6 of 11: disk, name lookup, IP, Vultr metadata, the host, the kernel |
+
+  Said plainly: the ten "doing" attacks are stopped by the container walls; what gVisor adds, measurably, is that code
+  in the room never talks to the server's real kernel (it sees gVisor's own), which is what a kernel exploit needs.
+  We don't ship kernel exploits, so that second wall is shown, not stress-tested.
 - The vendor history (last invoice and bank details per vendor) is seeded; in a real shop it comes from the AP system.
 - **What runs outside the room, said plainly:** a forwarded `.eml` is unpacked on the server by Python's standard
   `email` parser to get the sender and the attachment (the attachment itself only ever opens in the room); the app user

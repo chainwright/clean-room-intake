@@ -99,6 +99,19 @@ def host():
         probe("reach the server itself", "connect to the Docker host 172.17.0.1:22", f"no route · {e.strerror or type(e).__name__}", True)
 
 
+def kernel():
+    """What kernel does the room talk to? A kernel exploit needs the host's real kernel. With gVisor the room only
+    sees gVisor's own user-space kernel; in an ordinary container it sees the server's. Judged outside: the
+    orchestrator compares with the Docker host's kernel version."""
+    seen = []
+    for p in ("/proc/version", "/proc/sys/kernel/osrelease"):
+        try:
+            seen.append(open(p).read().strip()[:160])
+        except OSError as e:
+            seen.append(f"{p}: {type(e).__name__}")
+    probe("find the server's kernel", "read /proc/version", " | ".join(seen) + f" | uname {os.uname().release}", None)
+
+
 def root():
     try:
         os.setuid(0)
@@ -150,7 +163,7 @@ def memory():
 def extract(path):
     """The orchestrator hands in one word: "flood" for the second room, anything else for the first."""
     mode = open(path).read().strip()
-    attacks = (flood,) if mode == "flood" else (secrets, host_files, write_root, dns, raw_ip, metadata, host, root, memory)
+    attacks = (flood,) if mode == "flood" else (secrets, host_files, write_root, dns, raw_ip, metadata, host, kernel, root, memory)
     for attack in attacks:
         try:
             attack()

@@ -1,0 +1,209 @@
+{
+ "script_sha256": "71ab696ed4d55e7ba209da66d9dec6124b608d04c1ff6ace4f5be746ba6d494a",
+ "setups": {
+  "room": [
+   {
+    "attack": "read the API key",
+    "how": "search the environment and /proc/*/environ for keys and tokens",
+    "outcome": "nothing there \u00b7 the room only has HOME, LANG, PATH",
+    "held": true
+   },
+   {
+    "attack": "read password and key files",
+    "how": "open /etc/shadow, root's ssh key, the app's key file (as the room sees them)",
+    "outcome": "/etc/shadow: PermissionError; /root/.ssh/id_ed25519: PermissionError; /etc/cleanroom.env: FileNotFoundError",
+    "held": true
+   },
+   {
+    "attack": "leave something behind",
+    "how": "write /var/tmp/payload.sh (writable by anyone on a normal system)",
+    "outcome": "refused \u00b7 Read-only file system",
+    "held": true
+   },
+   {
+    "attack": "call home by name",
+    "how": "look up example.com",
+    "outcome": "no answer \u00b7 gaierror",
+    "held": true
+   },
+   {
+    "attack": "call home by IP",
+    "how": "connect to 1.1.1.1:443",
+    "outcome": "no route \u00b7 Network is unreachable",
+    "held": true
+   },
+   {
+    "attack": "ask Vultr's metadata service",
+    "how": "connect to 169.254.169.254:80",
+    "outcome": "no route \u00b7 Network is unreachable",
+    "held": true
+   },
+   {
+    "attack": "reach the server itself",
+    "how": "connect to the Docker host 172.17.0.1:22",
+    "outcome": "no route \u00b7 Network is unreachable",
+    "held": true
+   },
+   {
+    "attack": "find the server's kernel",
+    "how": "read /proc/version",
+    "outcome": "sees only gVisor's kernel (4.19.0-gvisor), not the server's (6.8.0-147-generic)",
+    "held": true
+   },
+   {
+    "attack": "become root",
+    "how": "setuid(0), then check capabilities",
+    "outcome": "refused \u00b7 Operation not permitted \u00b7 capabilities 0000000000000000",
+    "held": true
+   },
+   {
+    "attack": "eat the memory",
+    "how": "grab 1 GB, 64 MB at a time",
+    "outcome": "room killed at 512 MB (exit 137)",
+    "held": true
+   },
+   {
+    "attack": "flood with processes",
+    "how": "start 500 processes",
+    "outcome": "stopped at 50 processes by the room's 128-task cap (gVisor ended the room, exit 2)",
+    "held": true
+   }
+  ],
+  "plain": [
+   {
+    "attack": "read the API key",
+    "how": "search the environment and /proc/*/environ for keys and tokens",
+    "outcome": "nothing there \u00b7 the room only has HOME, LANG, PATH",
+    "held": true
+   },
+   {
+    "attack": "read password and key files",
+    "how": "open /etc/shadow, root's ssh key, the app's key file (as the room sees them)",
+    "outcome": "/etc/shadow: PermissionError; /root/.ssh/id_ed25519: PermissionError; /etc/cleanroom.env: FileNotFoundError",
+    "held": true
+   },
+   {
+    "attack": "leave something behind",
+    "how": "write /var/tmp/payload.sh (writable by anyone on a normal system)",
+    "outcome": "refused \u00b7 Read-only file system",
+    "held": true
+   },
+   {
+    "attack": "call home by name",
+    "how": "look up example.com",
+    "outcome": "no answer \u00b7 gaierror",
+    "held": true
+   },
+   {
+    "attack": "call home by IP",
+    "how": "connect to 1.1.1.1:443",
+    "outcome": "no route \u00b7 Network is unreachable",
+    "held": true
+   },
+   {
+    "attack": "ask Vultr's metadata service",
+    "how": "connect to 169.254.169.254:80",
+    "outcome": "no route \u00b7 Network is unreachable",
+    "held": true
+   },
+   {
+    "attack": "reach the server itself",
+    "how": "connect to the Docker host 172.17.0.1:22",
+    "outcome": "no route \u00b7 Network is unreachable",
+    "held": true
+   },
+   {
+    "attack": "find the server's kernel",
+    "how": "read /proc/version",
+    "outcome": "sees the server's own kernel (6.8.0-147-generic): a kernel exploit could aim at it",
+    "held": false
+   },
+   {
+    "attack": "become root",
+    "how": "setuid(0), then check capabilities",
+    "outcome": "refused \u00b7 Operation not permitted \u00b7 capabilities 0000000000000000",
+    "held": true
+   },
+   {
+    "attack": "eat the memory",
+    "how": "grab 1 GB, 64 MB at a time",
+    "outcome": "room killed at 512 MB (exit 137)",
+    "held": true
+   },
+   {
+    "attack": "flood with processes",
+    "how": "start 500 processes",
+    "outcome": "stopped at 127 \u00b7 Resource temporarily unavailable",
+    "held": true
+   }
+  ],
+  "walls_down": [
+   {
+    "attack": "read the API key",
+    "how": "search the environment and /proc/*/environ for keys and tokens",
+    "outcome": "nothing there \u00b7 the room only has HOME, LANG, PATH",
+    "held": true
+   },
+   {
+    "attack": "read password and key files",
+    "how": "open /etc/shadow, root's ssh key, the app's key file (as the room sees them)",
+    "outcome": "/etc/shadow: PermissionError; /root/.ssh/id_ed25519: PermissionError; /etc/cleanroom.env: FileNotFoundError",
+    "held": true
+   },
+   {
+    "attack": "leave something behind",
+    "how": "write /var/tmp/payload.sh (writable by anyone on a normal system)",
+    "outcome": "written",
+    "held": false
+   },
+   {
+    "attack": "call home by name",
+    "how": "look up example.com",
+    "outcome": "resolved",
+    "held": false
+   },
+   {
+    "attack": "call home by IP",
+    "how": "connect to 1.1.1.1:443",
+    "outcome": "connected",
+    "held": false
+   },
+   {
+    "attack": "ask Vultr's metadata service",
+    "how": "connect to 169.254.169.254:80",
+    "outcome": "connected",
+    "held": false
+   },
+   {
+    "attack": "reach the server itself",
+    "how": "connect to the Docker host 172.17.0.1:22",
+    "outcome": "connected",
+    "held": false
+   },
+   {
+    "attack": "find the server's kernel",
+    "how": "read /proc/version",
+    "outcome": "sees the server's own kernel (6.8.0-147-generic): a kernel exploit could aim at it",
+    "held": false
+   },
+   {
+    "attack": "become root",
+    "how": "setuid(0), then check capabilities",
+    "outcome": "refused \u00b7 Operation not permitted \u00b7 capabilities 0000000000000000",
+    "held": true
+   },
+   {
+    "attack": "eat the memory",
+    "how": "grab 1 GB, 64 MB at a time",
+    "outcome": "room killed at 512 MB (exit 137)",
+    "held": true
+   },
+   {
+    "attack": "flood with processes",
+    "how": "start 500 processes",
+    "outcome": "stopped at 127 \u00b7 Resource temporarily unavailable",
+    "held": true
+   }
+  ]
+ }
+}

@@ -196,6 +196,22 @@ async def intake(req: Request, file: Optional[UploadFile] = File(default=None)):
 BREAKIN = os.path.join(ROOT, "sandbox", "breakin.py")
 
 
+_HOST_KERNEL = None
+
+
+def _docker_host_kernel() -> str:
+    """The kernel the containers run on, as Docker reports it from outside (on a laptop that's the VM's, not macOS's)."""
+    global _HOST_KERNEL
+    if _HOST_KERNEL is None:
+        try:
+            import subprocess
+            _HOST_KERNEL = subprocess.run(["docker", "info", "--format", "{{.KernelVersion}}"], capture_output=True,
+                                          text=True, timeout=10).stdout.strip()
+        except Exception:
+            _HOST_KERNEL = ""
+    return _HOST_KERNEL
+
+
 def settle(rooms: list) -> list:
     """Attacks meant to get a room killed (memory, process flood) are judged from outside: the room's exit code and
     the forks its own audit hook recorded, not a promise from inside. Repeated lines for one attack collapse to the
@@ -206,9 +222,19 @@ def settle(rooms: list) -> list:
             last[p["attack"]] = dict(p, room=r["room"])
     out = list(last.values())
     by_room = {r["room"]: r for r in rooms}
+    host_kernel = _docker_host_kernel()
     for p in out:
         r = by_room[p["room"]]
         ended = r.get("exit_code") not in (0, None) or bool(r.get("killed_by"))
+        if p["attack"] == "find the server's kernel" and p["held"] is None:
+            saw = p.get("outcome") or ""
+            if not host_kernel:
+                p.update(outcome="couldn't read the host kernel to compare", held=None)
+            elif host_kernel in saw:
+                p.update(outcome=f"sees the server's own kernel ({host_kernel}): a kernel exploit could aim at it", held=False)
+            else:
+                rel = saw.rsplit("uname ", 1)[-1]
+                p.update(outcome=f"sees only gVisor's kernel ({rel}), not the server's ({host_kernel})", held=True)
         if p["attack"] == "eat the memory" and p["held"] is None:
             killed = r.get("killed_by") == "memory" or r.get("exit_code") == 137
             p.update(outcome=f"room killed at {r['caps']['memory_mb']} MB (exit 137)" if killed
@@ -218,7 +244,7 @@ def settle(rooms: list) -> list:
             code = r.get("exit_code")
             # measured on the VM (docs/flood_cap_control.txt): at the 128 cap gVisor ends the whole room with exit 2
             # after ~50 forks; with the cap raised to 1000 the 512 MB memory cap kills it after ~71 (exit 137).
-            why = f"stopped by the room's process cap at {forks} processes (gVisor ended the room, exit 2)" if code == 2 \
+            why = f"stopped at {forks} processes by the room's 128-task cap (gVisor ended the room, exit 2)" if code == 2 \
                 else f"room killed at its memory cap after {forks} processes (exit 137)" if code == 137 \
                 else f"room ended after {forks} processes (exit {code})"
             p.update(outcome=why if ended else f"{forks} processes, room still up", held=ended and forks < 500)
