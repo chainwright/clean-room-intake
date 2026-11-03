@@ -91,6 +91,11 @@ VULTR_INFERENCE_KEY=... CLEANROOM_MODEL=... .venv/bin/uvicorn app.web:app
   reach Vultr's metadata service (169.254.169.254), reach the server itself through Docker's bridge (172.17.0.1:22),
   `setuid(0)`, grab 1 GB, fork 500 processes. The two attacks that end a room are judged from outside (exit code, and
   the forks the room's own audit hook recorded).
+  **Control run** (`deploy/breakin_control.py` → `docs/breakin_walls_off.json`): the same script in an ordinary
+  container with the walls down (runc instead of gVisor, Docker's default network, writable root filesystem; the image's
+  non-root user and the memory/process caps kept) lets 5 of 10 through: the write to disk, the name lookup, the IP
+  connection, Vultr's metadata service and the server itself. In the room all 10 are stopped, so those five are stopped
+  by the room's walls, not by luck.
 - The vendor history (last invoice and bank details per vendor) is seeded; in a real shop it comes from the AP system.
 - **What runs outside the room, said plainly:** a forwarded `.eml` is unpacked on the server by Python's standard
   `email` parser to get the sender and the attachment (the attachment itself only ever opens in the room); the app user
