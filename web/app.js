@@ -90,7 +90,8 @@ function tick() {
 }
 
 // ---------- the room (right) ----------
-const WORDS = { sandbox_up: "room up · gVisor on Vultr · no network · no secrets", opening: "file handed in, read-only", retry: "step failed, the model rewrites it",
+const WORDS = { writing_step: "the model writes the extraction step · Vultr Serverless Inference", reading_fields: "the model reads the fields from the text, as data",
+  sandbox_up: "room up · gVisor on Vultr · no network · no secrets", opening: "file handed in, read-only", retry: "step failed, the model rewrites it",
   extracting: "only text passed through the drawer", extracted: "fields read", failed: "couldn't read the file", destroyed: "room destroyed ✓" };
 
 function render() {
@@ -104,6 +105,9 @@ function render() {
     html += `<span class="t">${t === last ? "" : t}</span><span class="m">${esc(msg)}</span>`;
     last = t;
   }
+  const lastState = [...shown].reverse().find((b) => b.kind === "state" && b.state)?.state;
+  if (!j.done && v.shown >= v.beats.length && ["writing_step", "reading_fields", "opening", "retry"].includes(lastState))
+    html += `<span class="t"></span><span class="m dim">…</span>`;
   const log = $("log"); log.innerHTML = html || `<span class="t"></span><span class="m dim">Waiting for a clean room…</span>`;
   const xs = [...log.querySelectorAll(".x")];
   if (xs.length !== $("pins").children.length) {   // a ring where the newest attempt hit, pins stay for the earlier ones

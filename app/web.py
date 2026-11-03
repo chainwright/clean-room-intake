@@ -29,6 +29,15 @@ INBOX = os.path.join(ROOT, "demo", "inbox")
 MAX_BYTES = 10 * 1024 * 1024
 
 app = FastAPI(title="Clean Room Intake")
+
+
+@app.middleware("http")
+async def no_stale_ui(request, call_next):
+    """The page and its script revalidate on every load, so a deploy is seen at once (judges, video takes)."""
+    resp = await call_next(request)
+    if not request.url.path.startswith("/api/"):
+        resp.headers["Cache-Control"] = "no-cache"
+    return resp
 JOBS: dict = {}
 LOCK = threading.Lock()
 

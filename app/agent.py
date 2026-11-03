@@ -96,8 +96,9 @@ def run(filename: str, data: bytes, llm: Optional[Callable] = None, cmd_for=sand
 
     ask = f"File kind: {it.kind}. File name: {filename}. Size: {len(data)} bytes. Write extract(path)."
     for attempt in range(MAX_RETRIES + 1):
-        state("sandbox_up" if attempt == 0 else "retry")
+        state("writing_step" if attempt == 0 else "retry")       # the model writes extract() (outside the room)
         step = _code(_chat(STEP_SYSTEM, ask, llm))
+        state("sandbox_up")
         state("opening")
         rec = sandbox.run(data, step, caps, cmd_for=cmd_for, render_html=(it.kind == "html" and attempt == 0))
         it.tries.append({"step": step, "receipt": rec.as_dict()})
@@ -116,6 +117,7 @@ def run(filename: str, data: bytes, llm: Optional[Callable] = None, cmd_for=sand
     state("extracting")
     if INSTRUCTION_LIKE.search(it.text):
         it.flags.append("Instruction-like text found inside the document. Treated as data and ignored.")
+    state("reading_fields")                                          # the model reads the text that came out
     raw = _chat(FIELDS_SYSTEM, f"<document>\n{it.text[:12000]}\n</document>", llm)
     m = re.search(r"\{.*\}", raw, re.S)
     try:
