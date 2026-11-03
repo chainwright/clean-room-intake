@@ -12,7 +12,12 @@ BLINK_LOADER = 101845102
 
 def attempts(path, skip_schemes=("file:", "data:", "about:", "chrome:", "blob:")):
     with open(path) as f:
-        d = json.load(f)
+        raw = f.read()
+    try:
+        d = json.loads(raw)
+    except ValueError:
+        # a renderer that is killed or crashes leaves the log unterminated; Chromium's own viewer accepts that
+        d = json.loads(raw.rstrip().rstrip(",") + "]}")
     c = d.get("constants", {})
     ev_name = {v: k for k, v in c.get("logEventTypes", {}).items()}
     src_name = {v: k for k, v in c.get("logSourceType", {}).items()}

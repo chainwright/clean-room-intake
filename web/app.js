@@ -23,7 +23,8 @@ function host(detail) {
 }
 function describe(a) {
   if (a.what === "getenv") return `tried to read ${a.detail} · nothing there`;
-  if (a.what.startsWith("socket") || a.what === "urllib.Request" || a.what === "browser") return `tried to reach ${host(a.detail)} · no network`;
+  if (a.what === "browser") return `the page tried to load ${host(a.detail)}${/[?&]d=/.test(a.detail) ? " with the invoice title in the URL" : ""} · no network`;
+  if (a.what.startsWith("socket") || a.what === "urllib.Request") return `tried to reach ${host(a.detail)} · no network`;
   if (a.what === "open") return `tried to open ${a.detail} · read-only room`;
   return `tried ${a.what} · stopped`;
 }

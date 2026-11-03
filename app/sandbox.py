@@ -77,7 +77,10 @@ def parse_lines(out: str, r: Receipt) -> None:
             r.error = ev.get("error", "")
 
 
-def run(file_bytes: bytes, step_code: str, caps: Caps = Caps(), cmd_for=docker_cmd) -> Receipt:
+NETLOG = os.path.join(os.path.dirname(RUNNER), "netlog.py")
+
+
+def run(file_bytes: bytes, step_code: str, caps: Caps = Caps(), cmd_for=docker_cmd, render_html: bool = False) -> Receipt:
     room = "cr-" + uuid.uuid4().hex[:12]
     r = Receipt(room=room, image=IMAGE, runtime=RUNTIME, caps=asdict(caps))
     work = tempfile.mkdtemp(prefix=room + "-")
@@ -87,9 +90,12 @@ def run(file_bytes: bytes, step_code: str, caps: Caps = Caps(), cmd_for=docker_c
         with open(os.path.join(work, "step.py"), "w") as f:
             f.write(step_code)
         shutil.copy(RUNNER, os.path.join(work, "runner.py"))
+        shutil.copy(NETLOG, os.path.join(work, "netlog.py"))
+        if render_html:
+            open(os.path.join(work, "render_html"), "w").close()
         # the container runs as nobody (65534): it must be able to read these, and nothing more
         os.chmod(work, 0o755)
-        for n in ("file", "step.py", "runner.py"):
+        for n in os.listdir(work):
             os.chmod(os.path.join(work, n), 0o444)
         r.started = time.time()
         try:

@@ -65,7 +65,40 @@ class WatchedEnv(dict):
         return super().get(k, default)
 
 
+CHROME_FLAGS = ["--headless=new", "--disable-gpu", "--no-sandbox",   # gVisor is the sandbox; check --single-process on the VM if memory is tight
+                "--disable-background-networking", "--disable-component-update", "--disable-sync", "--no-first-run",
+                "--disable-default-apps", "--window-size=1000,1300"]
+
+
+def render_preview(path):
+    """HTML files: render the page the way a mail client or preview pane would, in the room, with Chromium's own
+    net log. Every URL the page itself tried becomes an attempt (the room has no network, so each one fails)."""
+    import subprocess
+    sys.path.insert(0, IN)
+    import netlog
+    chrome = os.environ.get("CLEANROOM_CHROME", "chromium")
+    log, shot = "/tmp/net.json", "/tmp/preview.png"
+    html = path + ".html" if not path.endswith(".html") else path
+    if html != path:
+        html = "/tmp/page.html"
+        with open(path, "rb") as src, open(html, "wb") as dst:
+            dst.write(src.read())
+    try:
+        subprocess.run([chrome, *CHROME_FLAGS, "--user-data-dir=/tmp/chrome", f"--log-net-log={log}",
+                        f"--screenshot={shot}", "file://" + html], capture_output=True, timeout=20)
+    except Exception as e:
+        emit(ev="note", note=f"preview renderer didn't run: {type(e).__name__}")
+        return
+    try:
+        for a in netlog.attempts(log):
+            emit(ev="attempt", what="browser", detail=f"{a['url']} ({a['error']})")
+    except Exception as e:
+        emit(ev="note", note=f"couldn't read the renderer's log: {type(e).__name__}")
+
+
 def main():
+    if os.path.exists(IN + "/render_html"):     # the orchestrator asks for a preview render (HTML invoices)
+        render_preview(IN + "/file")            # before the audit hook: the renderer's own subprocess isn't the step
     os.environ = WatchedEnv(os.environ)          # noqa: B003 (deliberate)
     sys.addaudithook(hook)
     ns = {"__name__": "step", "FILE": IN + "/file"}

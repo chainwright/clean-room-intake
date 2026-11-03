@@ -23,7 +23,8 @@ STEP_SYSTEM = """You write one Python function for a locked-down sandbox:
     def extract(path: str) -> dict:
         # returns {"text": <all readable text>, "fields": {}, "notes": [<short strings>]}
 
-Allowed imports: fitz (PyMuPDF), docx (python-docx), zipfile, xml.etree.ElementTree, PIL, pytesseract, email, re, json.
+Allowed imports: fitz (PyMuPDF), docx (python-docx), zipfile, xml.etree.ElementTree, PIL, pytesseract, email, re, json,
+html.parser (for HTML invoices: read the visible text only; never fetch anything the page links to).
 No network, no environment variables, no files outside `path` and /tmp. Return only code, no prose, no fences."""
 
 FIELDS_SYSTEM = """You read an invoice's text and return JSON only:
@@ -61,6 +62,8 @@ def kind_of(name: str, head: bytes) -> str:
         return "image"
     if n.endswith(".eml"):
         return "email"
+    if n.endswith((".html", ".htm")) or head.lstrip().lower().startswith((b"<!doc", b"<html")):
+        return "html"
     return "unknown"
 
 
@@ -96,7 +99,7 @@ def run(filename: str, data: bytes, llm: Optional[Callable] = None, cmd_for=sand
         state("sandbox_up" if attempt == 0 else "retry")
         step = _code(_chat(STEP_SYSTEM, ask, llm))
         state("opening")
-        rec = sandbox.run(data, step, caps, cmd_for=cmd_for)
+        rec = sandbox.run(data, step, caps, cmd_for=cmd_for, render_html=(it.kind == "html" and attempt == 0))
         it.tries.append({"step": step, "receipt": rec.as_dict()})
         if rec.result and rec.result.get("text", "").strip():
             it.text = rec.result["text"]
