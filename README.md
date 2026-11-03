@@ -58,7 +58,7 @@ End to end on the VM with the real model (`docs/e2e_vultr.json`): all five sampl
 | Secrets | no environment passed in; the key stays in `/etc/cleanroom.env` for the orchestrator only; the runner drops the base image's variables before the step runs | the step sees only `HOME LANG PATH` |
 | Filesystem | `--read-only`, 64 MB tmpfs, input mounted read-only | write to `/`: refused |
 | Memory | 512 MB, no swap | 1 GB allocation: killed (exit 137) |
-| Processes | 128 pids | 500 process starts: stopped after 50 (memory runs out first) |
+| Processes | 128 pids | containment check: 500 `sleep` processes, stopped at 50 (`ENOMEM`). Break-in test: 500 forks, stopped at ~51, gVisor ends the room (exit 2); control with the cap raised to 1000: all 500 start, so it is the cap |
 | Time | 30 s, then `docker rm -f` | containers left after all runs: 0 |
 | Privileges | `--cap-drop=ALL`, `no-new-privileges`, user 65534 | `CapEff 0000000000000000`, uid 65534 |
 
@@ -85,9 +85,12 @@ VULTR_INFERENCE_KEY=... CLEANROOM_MODEL=... .venv/bin/uvicorn app.web:app
   from the file sent) and the receipt shows they answer.
 - **The break-in test (`sandbox/breakin.py`) is our own attack script**, run in two fresh rooms with exactly the walls a
   file gets: read keys from the environment, open password/key files, write to `/`, look up a name, connect to an IP,
+  reach Vultr's metadata service (169.254.169.254), reach the server itself through Docker's bridge (172.17.0.1:22),
   `setuid(0)`, grab 1 GB, fork 500 processes. The two attacks that end a room are judged from outside (exit code, and
   the forks the room's own audit hook recorded).
 - The vendor history (last invoice and bank details per vendor) is seeded; in a real shop it comes from the AP system.
+- **The demo has no login.** Anyone can approve a held payment on the public demo; a real deployment sits behind the
+  company's sign-in, with approvals tied to the controller's account.
 - Everything else is live: the sandbox, its caps, its destruction, and every model call.
 
 ## Licence

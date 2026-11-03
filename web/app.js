@@ -141,7 +141,8 @@ function render() {
     if (b.kind === "attempt") { html += `<span class="t"></span><span class="m x">✕ ${esc(b.text)}</span>`; continue; }
     if (b.note2) { html += `<span class="t"></span><span class="m dim">${esc(b.note2)}</span>`; continue; }
     if (b.note) { html += `<span class="t"></span><span class="m n">✕ ${esc(b.note)}</span>`; continue; }
-    const t = rel(b.at), msg = b.state === "blocked" ? `fields read · ${tried.length} attempt${tried.length === 1 ? "" : "s"} stopped` : (WORDS[b.state] || b.state);
+    const t = rel(b.at), msg = b.state === "blocked" ? `fields read · ${tried.length} attempt${tried.length === 1 ? "" : "s"} stopped`
+      : b.state === "writing_step" && j.model ? `${j.model} writes the extraction step · Vultr Serverless Inference` : (WORDS[b.state] || b.state);
     html += `<span class="t">${t === last ? "" : t}</span><span class="m">${esc(msg)}</span>`;
     last = t;
   }
@@ -205,7 +206,7 @@ function stub(j) {
   const held = (j.flags || []).some((x) => x.blocks) && !j.approved;
   const flagged = (j.flags || []).some((x) => x.blocks), hidden = (j.notes || []).some((n) => /instruction/i.test(n));
   const st = held ? `<div class="st held">HOLD · needs you</div>` : flagged ? `<div class="st held">APPROVED AFTER CALL</div>`
-    : tried.length ? `<div class="st stopped">${tried.length} STOPPED</div>` : hidden ? `<div class="st held">HIDDEN INSTRUCTIONS · IGNORED</div>`
+    : tried.length ? `<div class="st stopped">${tried.length} STOPPED</div>` : hidden ? `<div class="st held">HIDDEN INSTRUCTIONS FOUND</div>`
     : `<div class="st clean">clean</div>`;
   const short = (d) => d.replace(/^the page tried to send its title to (\S+)/, "page title → $1").replace(/^the page tried to load an image from (\S+)/, "image ← $1")
     .replace(/^the page tried to reach |^tried to (reach|read) /, "").replace(" · nothing there", " · not there");
@@ -213,7 +214,7 @@ function stub(j) {
     `NET ${esc(r.network)} · FS read-only<br>MEM ${r.caps.memory_mb}&nbsp;MB · CPU&nbsp;${r.caps.cpus} · ${r.caps.seconds}&nbsp;s<br>secrets inside: ${r.secrets_inside} · runtime ${esc(r.runtime)}<hr>` +
     (tried.length ? tried.map((d) => `<span class="x">✕ ${esc(short(d))}</span>`).join("<br>") : "Attempts stopped: none") +
     ((j.control || []).length ? `<hr><span class="ctl">control · the same hosts from the server, outside the room:</span><br>` +
-      j.control.map((c) => `<span class="ok">✓ ${esc(c.host.replace(/^https?:\/\//, ""))} → ${esc(c.result)} in ${c.ms} ms</span>`).join("<br>") : "") +
+      j.control.map((c) => `<span class="ok">✓ ${esc(c.host.replace(/^https?:\/\//, ""))} answers (${esc(c.result)}) in ${c.ms} ms</span>`).join("<br>") : "") +
     `<hr>room lived ${lived(j)} s · destroyed ✓${j.tries.length > 1 ? ` · ${j.tries.length} tries` : ""}${rawRecord(j)}</div>`;
 }
 

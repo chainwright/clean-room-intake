@@ -142,7 +142,7 @@ def _start(name: str, data: bytes) -> str:
     with LOCK:
         JOBS[jid] = {"id": jid, "file": name, "sender": sender, "state": "queued", "states": [{"state": "queued", "at": time.time()}],
                      "fields": {}, "flags": [], "notes": [], "tries": [], "done": False, "paid": False,
-                     "approved": False, "created": time.time()}
+                     "approved": False, "created": time.time(), "model": "scripted (dev mode)" if devmode.ON else agent.MODEL}
     threading.Thread(target=_work, args=(jid, name, data, sender), daemon=True).start()
     return jid
 
@@ -183,8 +183,13 @@ def settle(rooms: list) -> list:
                      else "the room was not killed", held=killed)
         if p["attack"] == "flood with processes" and p["held"] is None:
             forks = sum(1 for a in r["attempts"] if a.get("what") == "os.fork")
-            p.update(outcome=f"room ran out of memory after {forks} processes and stopped (exit {r.get('exit_code')})" if ended
-                     else f"{forks} processes, room still up", held=ended and forks < 500)
+            code = r.get("exit_code")
+            # measured on the VM and a laptop: at the 128-task cap gVisor ends the whole room with exit 2 after ~51
+            # forks; with the cap raised to 1000 all 500 start. So exit 2 short of 500 = the process cap.
+            why = f"stopped by the room's process cap at {forks} processes (gVisor ended the room, exit 2)" if code == 2 \
+                else f"room killed at its memory cap after {forks} processes (exit 137)" if code == 137 \
+                else f"room ended after {forks} processes (exit {code})"
+            p.update(outcome=why if ended else f"{forks} processes, room still up", held=ended and forks < 500)
     return out
 
 

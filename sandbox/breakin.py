@@ -41,7 +41,7 @@ def host_files():
         except OSError as e:
             got.append((p, type(e).__name__))
     leaked = [p for p, r in got if isinstance(r, int) and r > 0]
-    probe("read password and key files", "open /etc/shadow, root's ssh key, the app's key file",
+    probe("read password and key files", "open /etc/shadow, root's ssh key, the app's key file (as the room sees them)",
           f"read {', '.join(leaked)}" if leaked else "; ".join(f"{p}: {r}" for p, r in got), not leaked)
 
 
@@ -68,6 +68,25 @@ def raw_ip():
         probe("call home by IP", "connect to 1.1.1.1:443", "connected", False)
     except OSError as e:
         probe("call home by IP", "connect to 1.1.1.1:443", f"no route · {e.strerror or type(e).__name__}", True)
+
+
+def metadata():
+    """The cloud's metadata service: on a cloud VM, 169.254.169.254 hands out instance details and credentials to
+    anything that can reach it. A sandbox must not."""
+    try:
+        socket.create_connection(("169.254.169.254", 80), timeout=3).close()
+        probe("ask Vultr's metadata service", "connect to 169.254.169.254:80", "connected", False)
+    except OSError as e:
+        probe("ask Vultr's metadata service", "connect to 169.254.169.254:80", f"no route · {e.strerror or type(e).__name__}", True)
+
+
+def host():
+    """The server the room runs on, through Docker's own bridge (172.17.0.1), e.g. its ssh port."""
+    try:
+        socket.create_connection(("172.17.0.1", 22), timeout=3).close()
+        probe("reach the server itself", "connect to the Docker host 172.17.0.1:22", "connected", False)
+    except OSError as e:
+        probe("reach the server itself", "connect to the Docker host 172.17.0.1:22", f"no route · {e.strerror or type(e).__name__}", True)
 
 
 def root():
@@ -121,7 +140,7 @@ def memory():
 def extract(path):
     """The orchestrator hands in one word: "flood" for the second room, anything else for the first."""
     mode = open(path).read().strip()
-    attacks = (flood,) if mode == "flood" else (secrets, host_files, write_root, dns, raw_ip, root, memory)
+    attacks = (flood,) if mode == "flood" else (secrets, host_files, write_root, dns, raw_ip, metadata, host, root, memory)
     for attack in attacks:
         try:
             attack()
