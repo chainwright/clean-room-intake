@@ -133,7 +133,7 @@ def damaged_copy():
     src = os.path.join(OUT, "bonneville_BSM-24117.pdf")
     data = open(src, "rb").read()
     with open(os.path.join(OUT, "damaged_BSM-24117_copy.pdf"), "wb") as f:
-        f.write(data[: int(len(data) * 0.12)])
+        f.write(data[: int(len(data) * 0.06)])
 
 
 def main():
