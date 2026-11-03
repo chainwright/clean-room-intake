@@ -3,40 +3,41 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Clean Room Intake: open files from strangers safely</title>
+<title>Clean Room Intake: open invoices from strangers safely</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header>
-  <b>Clean Room Intake</b><span class="tag">Open files from strangers without opening your business to them.</span>
+  <div><b>Clean Room Intake</b><span class="tag">Open files from strangers without opening your business to them.</span></div>
   <nav><a href="#desk" id="nav-desk" class="on">Clerk desk</a><a href="#receipts" id="nav-receipts">Controller receipts</a></nav>
+  <div class="who">For accounts payable: invoices from people you've never met are opened in a throwaway room on Vultr. Only the text comes back.</div>
+  <div class="count" id="count"></div>
 </header>
 
 <div class="wrap" id="view-desk">
   <section class="desk">
     <div class="label">Your desk · safe copy here</div>
-    <div class="drop" id="drop">Drop an invoice here (PDF, scan, Word, or a forwarded .eml). It's opened in the booth, never here.
+    <div class="drop" id="drop">Drop an invoice here. It's opened in the room on the right, never on this computer.
       <input type="file" id="file" hidden></div>
     <div class="samples">Or try the sample inbox:<span id="samples"></span></div>
     <div class="queue" id="queue"></div>
-    <div id="slip" class="empty">Pick a file. Its fields will come back through the drawer as text.</div>
+    <div id="slip" class="empty">Pick a file. Its fields come back through the drawer as text.</div>
   </section>
-  <section class="booth">
-    <div class="glass"></div><div class="pin" id="pin" style="top:200px"></div>
-    <div class="drawer" id="drawer">⇦ text only</div>
-    <div class="label">The booth · opened over there</div>
+  <section class="room">
+    <div class="glass"></div><div id="pins"></div>
+    <div class="drawer" id="drawer">⇦ only text</div>
+    <div class="label">The room · opened over there</div>
     <div class="test" id="test"></div>
-    <div class="log" id="log"><span class="dim">Nothing in the booth. Every file gets a fresh room, and the room is destroyed after it.</span></div>
-    <div class="spec" id="spec">NET none · FS read-only · MEM 512 MB · CPU 1 · 30 s · secrets inside: 0</div>
+    <div class="log" id="log"><span class="dim">The room is empty. Every file gets a fresh one, and it's destroyed afterwards.</span></div>
+    <div id="stub"></div>
   </section>
 </div>
 
 <div id="view-receipts" class="desk" hidden>
-  <div class="label">Controller · receipts</div>
-  <table class="r" id="rtable"></table>
-  <div id="rdetail" style="margin-top:18px"></div>
+  <div class="label">Controller · receipt stubs</div>
+  <div class="stubs" id="stubs"></div>
 </div>
 
 <script src="app.js"></script>

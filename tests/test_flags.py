@@ -8,12 +8,15 @@ from app import flags  # noqa: E402
 
 class Flags(unittest.TestCase):
     def test_granite_peak_new_bank_and_lookalike_domain(self):
-        f = {"vendor": "Granite Peak Refrigerants", "bank": {"routing": "000098765", "account_last4": "9013"},
+        f = {"vendor": "Granite Peak Refrigerants", "bank": {"name": "Summit Ridge Bank (EXAMPLE)", "routing": "000098765", "account_last4": "9013"},
              "sender_email": "ar@granitepeak-refrig.example"}
         out = flags.check(f, sender="Kelsey <ar@granitepeak-refrig.example.net>")
         codes = [x["code"] for x in out]
         self.assertEqual(codes, ["bank_changed", "sender_domain"])
         self.assertIn("GPR-5520", out[0]["text"])
+        self.assertIn("Canyon State Bank ****2208", out[0]["text"])
+        self.assertIn("Summit Ridge Bank ****9013", out[0]["text"])
+        self.assertTrue(flags.hold_text(out, "Granite Peak").endswith("before paying."))
         self.assertIn("granitepeak-refrig.example.net", out[1]["text"])
         self.assertTrue(all(x["blocks"] for x in out))
 

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import email
 import os
+import re
 import threading
 import time
 import uuid
@@ -57,7 +58,8 @@ def _work(job_id: str, name: str, data: bytes, sender: str):
         f = flags.check(it.fields, sender=sender or None)
         with LOCK:
             job.update(kind=it.kind, fields=it.fields, text=it.text, notes=it.flags,
-                       flags=f, tries=it.tries, error=it.error, done=True)
+                       flags=f, hold=flags.hold_text(f, (it.fields or {}).get("vendor", "")),
+                       tries=it.tries, error=it.error, done=True)
     except Exception as e:   # the clean room must never take the app down
         with LOCK:
             job.update(error=f"{type(e).__name__}: {e}"[:300], state="failed", done=True)
@@ -99,12 +101,26 @@ def get_intake(jid: str):
         return JSONResponse(JOBS[jid])
 
 
+def _stopped(j) -> int:
+    """How many distinct things the file tried (one network target counts once, however many calls it took)."""
+    seen = set()
+    for t in j["tries"]:
+        for a in t["receipt"]["attempts"]:
+            if a["what"].startswith("socket") or a["what"] == "urllib.Request":
+                m = re.search(r"https?://([^/'\"]+)", a["detail"]) or re.search(r"\('([^']+)'", a["detail"])
+                seen.add(("net", m.group(1) if m else a["detail"]))
+            else:
+                seen.add((a["what"], a["detail"]))
+    return len(seen)
+
+
 @app.get("/api/intakes")
 def list_intakes():
     with LOCK:
         return [{k: j[k] for k in ("id", "file", "state", "done", "paid", "approved", "created")} |
                 {"vendor": (j["fields"] or {}).get("vendor"), "total": (j["fields"] or {}).get("total"),
-                 "flagged": bool(j["flags"]), "blocked": any(t["receipt"]["attempts"] for t in j["tries"])}
+                 "flagged": bool(j["flags"]), "blocked": any(t["receipt"]["attempts"] for t in j["tries"]),
+                 "stopped": _stopped(j)}
                 for j in sorted(JOBS.values(), key=lambda j: -j["created"])]
 
 

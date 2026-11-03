@@ -1,8 +1,9 @@
-// Clean Room Intake front end: no framework, polls the API while a file is in the booth.
+// Clean Room Intake front end (direction A + B's postmarks and receipt stubs). No framework; polls while a file is in the room.
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const TRACK = [["queued", "queued"], ["sandbox_up", "booth up"], ["opening", "opened"], ["extracting", "fields read"], ["destroyed", "booth destroyed"]];
-let current = null, timer = null, shownAttempts = 0;
+const money = (v) => (v == null ? "—" : "$" + Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+const hhmmss = (t) => new Date(t * 1000).toLocaleTimeString("en-US", { hour12: false });
+let current = null, timer = null, shown = { attempts: 0, file: null, stub: false };
 
 async function api(path, opts = {}) {
   const r = await fetch(path, opts);
@@ -11,70 +12,8 @@ async function api(path, opts = {}) {
   return body;
 }
 
-// ---------- sample inbox and upload ----------
-async function loadSamples() {
-  const names = await api("/api/samples");
-  $("samples").innerHTML = names.filter((n) => !n.endsWith(".docx") || !names.includes(n.replace(".docx", ".eml")))
-    .map((n) => `<button data-s="${esc(n)}">${esc(label(n))}</button>`).join("·");
-  $("samples").onclick = (e) => { const s = e.target.dataset.s; if (s) start({ sample: s }); };
-}
-const label = (n) => n.replace(/_TESTFILE/, " (test file)").replace(/\.(pdf|docx|eml|jpg)$/, " .$1").replace(/_/g, " ");
-
-const drop = $("drop");
-drop.onclick = () => $("file").click();
-$("file").onchange = (e) => e.target.files[0] && upload(e.target.files[0]);
-drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("over"); };
-drop.ondragleave = () => drop.classList.remove("over");
-drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove("over"); e.dataTransfer.files[0] && upload(e.dataTransfer.files[0]); };
-
-async function upload(file) {
-  const fd = new FormData(); fd.append("file", file);
-  const { id } = await api("/api/intake", { method: "POST", body: fd });
-  follow(id);
-}
-async function start(body) {
-  const { id } = await api("/api/intake", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  follow(id);
-}
-
-// ---------- following one file through the booth ----------
-function follow(id) {
-  current = id; shownAttempts = 0;
-  $("log").innerHTML = ""; $("pin").className = "pin"; $("drawer").classList.remove("out");
-  clearInterval(timer); timer = setInterval(() => poll(id), 500); poll(id); refreshQueue();
-}
-
-async function poll(id) {
-  const j = await api(`/api/intake/${id}`);
-  if (id !== current) return;
-  renderBooth(j); renderSlip(j);
-  if (j.done) { clearInterval(timer); refreshQueue(); }
-}
-
-function renderBooth(j) {
-  const t0 = j.states[0].at, rel = (t) => (t - t0).toFixed(3).padStart(7, "0");
-  const lines = [], attempts = (j.tries || []).flatMap((t) => t.receipt.attempts);
-  const aLines = [...new Set(attempts.map((a) => describe(a)))].map((d) => `<span class="x">  ✕ ${esc(d)}</span>`);   // one line per thing tried
-  for (const s of j.states.slice(1)) {
-    const msg = { sandbox_up: "room up · gVisor · no network", opening: "file handed in, read-only", retry: "step failed, model rewrites it",
-      extracting: "text out through the drawer", extracted: "fields read", blocked: "fields read · every attempt hit a wall",
-      failed: "couldn't read the file", destroyed: "room destroyed" }[s.state] || s.state;
-    if (s.state === "extracting") lines.push(...aLines.splice(0));   // what the file tried happened while it was open
-    lines.push(`<span class="${s.state === "destroyed" ? "ok" : ""}">${rel(s.at)}  ${esc(msg)}</span>`);
-  }
-  lines.push(...aLines);
-  $("log").innerHTML = lines.join("\n") || `<span class="dim">Waiting for a clean room…</span>`;
-  if (attempts.length > shownAttempts) {
-    const pin = $("pin"); pin.classList.add("on", "hit"); setTimeout(() => pin.classList.remove("hit"), 150);
-    shownAttempts = attempts.length;
-  }
-  const rec = j.tries?.at(-1)?.receipt;
-  if (rec) $("spec").textContent = `room ${rec.room} · NET ${rec.network} · FS read-only · MEM ${rec.caps.memory_mb} MB · ` +
-    `CPU ${rec.caps.cpus} · ${rec.caps.seconds} s · secrets inside: ${rec.secrets_inside}`;
-  $("test").textContent = /TESTFILE/.test(j.file) ? "Our own harmless test file" : "";
-  if (j.done && j.state !== "failed") $("drawer").classList.add("out");
-}
-
+// ---------- what a file tried, in words ----------
+const attemptsOf = (j) => (j.tries || []).flatMap((t) => t.receipt.attempts);
 function host(detail) {
   const m = /https?:\/\/([^\/'"]+)/.exec(detail) || /\('([^']+)',\s*\d+/.exec(detail);
   return m ? m[1] : "an address";
@@ -85,59 +24,133 @@ function describe(a) {
   if (a.what === "open") return `tried to open ${a.detail} · read-only room`;
   return `tried ${a.what} · stopped`;
 }
+const distinct = (j) => [...new Set(attemptsOf(j).map(describe))];
 
+// ---------- sample inbox and upload ----------
+const label = (n) => n.replace(/_TESTFILE/, " (test file)").replace(/\.(pdf|docx|eml|jpg)$/, "").replace(/_/g, " ");
+async function loadSamples() {
+  const names = (await api("/api/samples")).filter((n) => !(n.endsWith(".docx") && n.startsWith("granite")));  // the .eml carries it
+  $("samples").innerHTML = names.map((n) => `<button data-s="${esc(n)}">${esc(label(n))}</button>`).join("·");
+  $("samples").onclick = (e) => { const s = e.target.dataset.s; if (s) start({ sample: s }); };
+}
+const drop = $("drop");
+drop.onclick = () => $("file").click();
+$("file").onchange = (e) => e.target.files[0] && upload(e.target.files[0]);
+drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("over"); };
+drop.ondragleave = () => drop.classList.remove("over");
+drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove("over"); e.dataTransfer.files[0] && upload(e.dataTransfer.files[0]); };
+async function upload(file) { const fd = new FormData(); fd.append("file", file); follow((await api("/api/intake", { method: "POST", body: fd })).id); }
+async function start(body) {
+  follow((await api("/api/intake", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).id);
+}
+
+// ---------- following one file ----------
+function follow(id) {
+  current = id; shown = { attempts: 0, file: id, stub: false };
+  $("log").className = "log"; $("log").innerHTML = ""; $("pins").innerHTML = ""; $("stub").innerHTML = "";
+  $("drawer").classList.remove("out");
+  const s = $("slip"); s.className = "slip enter"; requestAnimationFrame(() => requestAnimationFrame(() => s.classList.remove("enter")));
+  clearInterval(timer); timer = setInterval(() => poll(id), 400); poll(id); refreshQueue();
+}
+async function poll(id) {
+  const j = await api(`/api/intake/${id}`);
+  if (id !== current) return;
+  renderRoom(j); renderSlip(j);
+  if (j.done) { clearInterval(timer); refreshQueue(); }
+}
+
+// ---------- the room (right) ----------
+function renderRoom(j) {
+  const t0 = j.states[0].at, rel = (t) => `+${(t - t0).toFixed(2)} s`;
+  const words = { sandbox_up: "room up · gVisor · no network · no secrets", opening: "file handed in, read-only", retry: "step failed, the model rewrites it",
+    extracting: "only text passed through the drawer", extracted: "fields read", failed: "couldn't read the file", destroyed: "room destroyed ✓" };
+  const tried = distinct(j), lines = [];
+  let last = null;
+  for (const s of j.states.slice(1)) {
+    if (s.state === "extracting") tried.forEach((d) => lines.push(`<span class="x">          ✕ ${esc(d)}</span>`));
+    const t = rel(s.at);
+    const msg = s.state === "blocked" ? `fields read · ${tried.length} attempt${tried.length === 1 ? "" : "s"} stopped` : (words[s.state] || s.state);
+    lines.push(`<span>${t === last ? " ".repeat(t.length) : t}  ${esc(msg)}</span>`);   // same moment: one timestamp
+    last = t;
+  }
+  const log = $("log");
+  log.innerHTML = lines.join("\n") || `<span class="dim">Waiting for a clean room…</span>`;
+  if (tried.length > shown.attempts) {   // a red ring where each attempt line sits, then a pin that stays
+    const xs = [...log.querySelectorAll(".x")];
+    $("pins").innerHTML = xs.map((x) => `<div class="pin hit" style="top:${x.offsetTop + log.offsetTop + 4}px"></div>`).join("");
+    shown.attempts = tried.length;
+  }
+  $("test").textContent = /TESTFILE/.test(j.file) ? "Our own harmless test file" : "";
+  if (j.done && j.state !== "failed") $("drawer").classList.add("out");
+  if (j.done && !shown.stub) { shown.stub = true; $("stub").innerHTML = stub(j); }
+}
+
+function stub(j) {
+  const r = j.tries?.at(-1)?.receipt; if (!r) return "";
+  const tried = distinct(j);
+  return `<div class="stub">No. ${esc(r.room.toUpperCase())} · ${esc(j.file)}<hr>` +
+    `NET ${esc(r.network)} · FS read-only · MEM ${r.caps.memory_mb} MB · CPU ${r.caps.cpus} · ${r.caps.seconds} s<br>secrets inside: ${r.secrets_inside} · runtime ${esc(r.runtime)}<hr>` +
+    (tried.length ? tried.map((d) => `<span class="x">✕ ${esc(d)}</span>`).join("<br>") : "Attempts stopped: none") +
+    `<hr>opened ${hhmmss(r.started)} · destroyed ${hhmmss(r.destroyed)}${j.tries.length > 1 ? ` · ${j.tries.length} tries` : ""}</div>`;
+}
+
+// ---------- the slip (left) ----------
 function renderSlip(j) {
-  const f = j.fields || {}, el = $("slip");
-  const reached = new Set(j.states.map((s) => s.state));
-  const track = TRACK.map(([k, l], i) => {
-    const done = reached.has(k) || (k === "extracting" && (reached.has("extracted") || reached.has("blocked")));
-    const now = !done && i > 0 && reached.has(TRACK[i - 1][0]);
-    return `<span><i class="dot ${done ? "done" : now ? "now" : ""}"></i>${l}</span>`;
-  }).join("");
-  const money = (v) => (v == null ? "—" : "$" + Number(v).toLocaleString("en-US", { minimumFractionDigits: 2 }));
-  const bank = f.bank && (f.bank.routing || f.bank.account_last4) ? `${esc(f.bank.name || "")} routing ${esc(f.bank.routing || "?")} · ****${esc(f.bank.account_last4 || "?")}` : "";
-  const rows = [["Invoice", [f.invoice_no, f.invoice_date].filter(Boolean).join(" · ")], ["Amount", money(f.total)],
-    ["Due", f.due_date], ["Pay by", { ach: "ACH", check: "Check", card: "Card" }[f.pay_method] || ""], ["Bank", bank], ["Sender", j.sender]]
-    .filter(([, v]) => v).map(([k, v]) => `<div class="f"><span class="k">${k}</span><span class="v">${esc(v)}</span></div>`).join("");
+  const f = j.fields || {}, reached = new Set(j.states.map((s) => s.state)), el = $("slip");
+  const at = (k) => j.states.find((s) => s.state === k)?.at;
+  const marks = [["queued", "RECEIVED", at("queued")], ["opening", "OPENED IN ROOM"], ["extracting", "COPIED AS TEXT"], ["destroyed", "DESTROYED", at("destroyed")]]
+    .map(([k, w, t]) => reached.has(k) ? `<div class="pm">${w}${t ? "<br>" + hhmmss(t) : ""}</div>` : `<div class="pm wait">${w}</div>`).join("");
+  const tried = distinct(j), held = (j.flags || []).some((x) => x.blocks) && !j.approved;
+  const stamp = !j.done ? "" : tried.length ? `<div class="stamp">${tried.length} ATTEMPT${tried.length === 1 ? "" : "S"}<br>STOPPED AT THE GLASS</div>`
+    : held ? `<div class="stamp hold">HOLD · CALL VENDOR</div>` : "";
+  const top = !j.done ? "" :
+    held ? `<div class="hold"><b>HOLD</b> · ${esc(j.hold)}</div>` :
+    tried.length ? `<div class="tried">The file tried ${tried.length} thing${tried.length === 1 ? "" : "s"} while it was open. ${tried.length === 1 ? "It" : tried.length === 2 ? "Both" : "All"} stopped at the glass. Your fields are below.</div>` : "";
+  const bankFlag = (j.flags || []).find((x) => x.code === "bank_changed");
+  const bank = f.bank && (f.bank.routing || f.bank.account_last4)
+    ? (bankFlag ? `<span class="was">${esc(bankFlag.was)}</span>` : "") + `${esc((f.bank.name || "").replace(" (EXAMPLE)", ""))} · routing ${esc(f.bank.routing || "?")} · ****${esc(f.bank.account_last4 || "?")}` : "";
+  const pay = { ach: "ACH", check: "Check", card: "Card" }[f.pay_method] || "";
+  const rows = [["Amount", f.total != null ? money(f.total) : "", "amt"], ["Invoice", [f.invoice_no, f.invoice_date].filter(Boolean).join(" · ")],
+    ["Due", f.due_date], ["Pay by", [pay, f.remit_to].filter(Boolean).join(" · ")], ["Bank", bank, "raw"], ["From", j.sender]]
+    .filter(([, v]) => v).map(([k, v, c]) => `<div class="f"><span class="k">${k}</span><span class="v ${c === "amt" ? "amt" : ""}">${c === "raw" ? v : esc(v)}</span></div>`).join("");
   const notes = (j.notes || []).map((n) => `<div class="note">${esc(n)}</div>`).join("");
-  const holds = (j.flags || []).map((x) => `<div class="hold"><b>HOLD</b> · ${esc(x.text)}</div>`).join("");
-  const held = (j.flags || []).some((x) => x.blocks) && !j.approved;
   const btn = !j.done ? "" : j.paid ? `<div class="note">On the pay list.</div>`
-    : `<button class="btn" id="pay" ${held ? "disabled title='The controller has to approve the hold first'" : ""}>Send to pay list</button>` +
-      (held ? `<button class="btn ghost" id="appr">Controller: approve</button>` : "");
-  el.className = "slip"; el.innerHTML =
-    `<h2>${esc(f.vendor || (j.done ? "Unknown vendor" : "In the booth…"))}</h2>` +
-    `<div class="sub">${esc(j.file)} · ${j.done ? "came back through the drawer as text only" : "being opened on the other side"}</div>` +
-    `<div class="track">${track}</div>${rows}${j.error ? `<div class="hold">${esc(j.error)}</div>` : ""}${notes}${holds}${btn}`;
-  const pay = $("pay"); if (pay) pay.onclick = async () => { await api(`/api/intake/${j.id}/pay`, { method: "POST" }).catch((e) => alert(e.message)); poll(j.id); };
-  const ap = $("appr"); if (ap) ap.onclick = async () => { await api(`/api/intake/${j.id}/approve`, { method: "POST" }); poll(j.id); };
+    : held ? `<button class="btn" disabled>Waiting for controller</button><button class="btn ghost" id="appr">Controller: approve</button>`
+    : `<button class="btn" id="pay">Send to pay list</button>`;
+  el.className = "slip"; el.innerHTML = stamp +
+    `<h2>${esc(f.vendor || (j.done ? "Unknown vendor" : "In the room…"))}</h2>` +
+    `<div class="sub">${esc(j.file)}${/TESTFILE/.test(j.file) ? " · our own harmless test file" : ""}</div>` +
+    `<div class="marks">${marks}</div>${top}${rows}${j.error ? `<div class="hold">${esc(j.error)}</div>` : ""}${notes}${btn}`;
+  const p = $("pay"); if (p) p.onclick = async () => { await api(`/api/intake/${j.id}/pay`, { method: "POST" }).catch((e) => alert(e.message)); poll(j.id); };
+  const a = $("appr"); if (a) a.onclick = async () => { await api(`/api/intake/${j.id}/approve`, { method: "POST" }); poll(j.id); };
 }
 
+// ---------- queue: one chip per file name, the latest run ----------
 async function refreshQueue() {
-  const items = await api("/api/intakes");
-  $("queue").innerHTML = items.map((i) => `<div class="chip ${i.id === current ? "on" : ""}" data-id="${i.id}">` +
-    `${esc(i.vendor || label(i.file))}${i.total != null ? " · $" + Number(i.total).toFixed(2) : ""}` +
-    `${i.flagged && !i.approved ? ' · <span class="held">HOLD</span>' : ""}${i.paid ? " ✓" : ""}${i.done ? "" : " …"}</div>`).join("");
+  const items = await api("/api/intakes"), seen = new Set(), latest = [];
+  for (const i of items) if (!seen.has(i.file)) { seen.add(i.file); latest.push(i); }
+  $("queue").innerHTML = latest.slice(0, 6).map((i) => {
+    const word = !i.done ? "in the room…" : i.flagged && !i.approved ? "HOLD" : i.stopped ? `${i.stopped} stopped` : i.paid ? "on the pay list" : "ready";
+    const cls = word === "HOLD" ? "held" : /stopped/.test(word) ? "stopped" : "";
+    return `<div class="chip ${i.id === current ? "on" : ""}" data-id="${i.id}">${esc(i.vendor || label(i.file))}` +
+      `${i.total != null ? " · " + money(i.total) : ""} · <span class="w ${cls}">${word}</span></div>`;
+  }).join("");
   $("queue").onclick = (e) => { const id = e.target.closest(".chip")?.dataset.id; if (id) follow(id); };
+  const opened = items.filter((i) => i.done).length;
+  $("count").textContent = opened ? `${opened} file${opened === 1 ? "" : "s"} opened · 0 got out` : "";
 }
 
-// ---------- controller receipts ----------
+// ---------- controller: receipt stubs ----------
 async function showReceipts() {
-  const items = await api("/api/intakes");
-  $("rtable").innerHTML = `<tr><th>File</th><th>Vendor</th><th>Amount</th><th>Attempts stopped</th><th>Hold</th><th></th></tr>` +
-    items.map((i) => `<tr><td>${esc(i.file)}</td><td>${esc(i.vendor || "")}</td><td>${i.total != null ? "$" + Number(i.total).toFixed(2) : ""}</td>` +
-      `<td>${i.blocked ? "yes" : "none"}</td><td>${i.flagged ? (i.approved ? "approved" : "HOLD") : ""}</td>` +
-      `<td><a href="#" data-id="${i.id}">receipt</a></td></tr>`).join("");
-  $("rtable").onclick = async (e) => {
-    const id = e.target.dataset.id; if (!id) return; e.preventDefault();
-    const j = await api(`/api/intake/${id}`);
-    $("rdetail").innerHTML = (j.tries || []).map((t, n) => { const r = t.receipt; return `<div class="receipt">Receipt · ${esc(j.file)} · try ${n + 1}<br>` +
-      `room ${esc(r.room)} · image ${esc(r.image)} · runtime ${esc(r.runtime)}<hr>NET ${esc(r.network)} · FS read-only<br>` +
-      `MEM ${r.caps.memory_mb} MB · CPU ${r.caps.cpus} · ${r.caps.seconds} s · pids ${r.caps.pids}<br>secrets inside: ${r.secrets_inside}<hr>` +
-      (r.attempts.map((a) => `<span class="x">✕ ${esc(describe(a))}</span>`).join("<br>") || "no attempts") +
-      `<hr>${r.killed_by ? "killed by " + esc(r.killed_by) + "<br>" : ""}opened ${new Date(r.started * 1000).toISOString()}<br>` +
-      `destroyed ${new Date(r.destroyed * 1000).toISOString()}</div>`; }).join("<br>");
-  };
+  const items = (await api("/api/intakes")).filter((i) => i.done);
+  const full = await Promise.all(items.map((i) => api(`/api/intake/${i.id}`)));
+  $("stubs").innerHTML = full.map((j) => {
+    const s = stub(j);
+    if (!(j.flags || []).length) return s;
+    return s.slice(0, -6) + `<hr><b>${j.approved ? "Approved" : "HOLD"}</b> · ${esc(j.hold)}` +
+      (j.approved ? "" : `<br><button class="btn" data-ap="${j.id}">Approve</button>`) + "</div>";
+  }).join("") || `<div class="empty">No files opened yet.</div>`;
+  $("stubs").onclick = async (e) => { const id = e.target.dataset.ap; if (id) { await api(`/api/intake/${id}/approve`, { method: "POST" }); showReceipts(); } };
 }
 
 function route() {

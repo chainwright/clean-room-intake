@@ -45,7 +45,8 @@ def fake_llm(system: str, user: str) -> str:
         return STEP
     t = user
     g = lambda p: (re.search(p, t, re.I | re.S) or [None, None])[1]
-    total = g(r"TOTAL(?: DUE)?\s*\$?([\d,]+\.\d\d)")
+    tot = re.findall(r"(?<!Sub)(?<!sub)TOTAL(?: DUE)?\s*\$?([\d,]+\.\d\d)", t, re.I)
+    total = tot[-1] if tot else None
     return json.dumps({
         "vendor": (g(r"<document>\s*\n?\s*([A-Z][^\n]+?)\n") or "").strip() or None,
         "invoice_no": g(r"INVOICE\s+([A-Z]{2,4}-\d+)"), "invoice_date": None,
