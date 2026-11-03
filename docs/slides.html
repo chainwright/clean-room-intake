@@ -28,7 +28,7 @@ table{border-collapse:collapse;font-size:22px;width:100%}td{padding:10px 14px;bo
 
 <section><div class="k">The product</div><h1>Open files from strangers without opening your business to them.</h1>
 <p>Every file is opened in a throwaway room on Vultr. Only the text comes back. The room is destroyed. A receipt stays.</p>
-<div class="foot">⟨demo URL⟩</div></section>
+<div class="foot">149-248-46-73.sslip.io</div></section>
 
 <section class="dark"><div class="k">How it works · Track 1, pattern A</div>
 <table><tr><td>1 · write</td><td>Vultr Serverless Inference writes the extraction step for this kind of file</td></tr>
@@ -38,15 +38,15 @@ table{border-collapse:collapse;font-size:22px;width:100%}td{padding:10px 14px;bo
 <tr><td>5 · check</td><td>vendor history: bank account and sender domain</td></tr>
 <tr><td>6 · destroy</td><td>container removed; receipt kept</td></tr></table><div class="foot">Clean Room Intake</div></section>
 
-<section><div class="k">The walls · measured on the VM</div>
-<table><tr><td>Kernel</td><td>gVisor runsc · ⟨dmesg⟩</td></tr><tr><td>Network</td><td>none · ⟨result⟩</td></tr>
-<tr><td>Secrets</td><td>0 variables in the room · ⟨result⟩</td></tr><tr><td>Filesystem</td><td>read-only, 64 MB tmpfs · ⟨result⟩</td></tr>
-<tr><td>Memory · pids · time</td><td>512 MB · 128 · 30 s · ⟨results⟩</td></tr><tr><td>Leftovers</td><td>⟨0 containers⟩</td></tr></table>
-<div class="src">deploy/containment_check.sh → docs/containment_check.txt</div><div class="foot">Clean Room Intake</div></section>
+<section><div class="k">The walls · measured on the Vultr VM (Seattle, x86_64, runsc release-20261102.0)</div>
+<table><tr><td>Kernel</td><td>gVisor runsc · dmesg: "Starting gVisor..."</td></tr><tr><td>Network</td><td>none · name resolution fails</td></tr>
+<tr><td>Secrets</td><td>none passed in · the step sees only HOME, LANG, PATH</td></tr><tr><td>Filesystem</td><td>read-only, 64 MB tmpfs · write to / refused</td></tr>
+<tr><td>Memory · pids · time</td><td>512 MB: 1 GB killed (137) · 128: stopped at 50 · 30 s, then rm -f</td></tr><tr><td>Privileges</td><td>no capabilities · uid 65534</td></tr><tr><td>Leftovers</td><td>0 containers after all runs</td></tr></table>
+<div class="src">deploy/containment_check.sh → docs/containment_check_vultr.txt</div><div class="foot">Clean Room Intake</div></section>
 
 <section class="dark"><div class="k">The containment moment · our own harmless test file</div>
 <h2>An HTML invoice tried to call home. Twice.</h2>
-<img class="shot" src="shot_real_html.png" style="width:760px;float:right;margin-left:24px">
+<img class="shot" src="cover.png" style="width:760px;float:right;margin-left:24px">
 <p class="x">✕ image ← collect.attacker.example</p>
 <p class="x">✕ page title → collect.attacker.example</p>
 <p style="font-size:22px">Recorded by the renderer itself (Chromium's net log), inside a room with no network. The clerk still got $418.20, due 12/01.</p>
@@ -60,6 +60,6 @@ table{border-collapse:collapse;font-size:22px;width:100%}td{padding:10px 14px;bo
 <table><tr><td>Who pays</td><td>AP teams of 5–500 people; per seat</td></tr>
 <tr><td>Replaces</td><td>"open and hope", manual retyping, after-the-fact fraud recovery</td></tr>
 <tr><td>Next</td><td>mailbox connector · vendor history from QuickBooks / NetSuite · one VM per customer</td></tr>
-<tr><td>On Vultr</td><td>Cloud Compute VM · Docker + gVisor · Serverless Inference</td></tr></table>
-<div class="foot">⟨repo⟩ · ⟨demo URL⟩</div></section>
+<tr><td>On Vultr</td><td>Cloud Compute VM · Docker + gVisor · Serverless Inference (deepseek-v4.1-flash)</td></tr></table>
+<div class="foot">github.com/chainwright/clean-room-intake · 149-248-46-73.sslip.io</div></section>
 </body></html>
