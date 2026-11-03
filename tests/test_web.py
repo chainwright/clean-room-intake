@@ -1,0 +1,74 @@
+import json
+import os
+import sys
+import time
+import unittest
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from fastapi.testclient import TestClient  # noqa: E402
+
+from app import agent, sandbox, web  # noqa: E402
+
+
+def local(room, work, caps):
+    return [sys.executable, "-I", os.path.join(work, "runner.py"), work]
+
+
+class Fake:
+    def __init__(self, fields):
+        self.fields = fields
+
+    def __call__(self, system, user):
+        if system.startswith("You write"):
+            return "def extract(path):\n    return {'text': open(path,'rb').read().decode('latin-1')}\n"
+        return json.dumps(self.fields)
+
+
+class Web(unittest.TestCase):
+    def setUp(self):
+        self.c = TestClient(web.app)
+        web.JOBS.clear()
+        self._run = agent.run
+
+    def tearDown(self):
+        agent.run = self._run
+
+    def use(self, fields):
+        agent.run = lambda name, data, **kw: self._run(name, data, llm=Fake(fields), cmd_for=local,
+                                                         caps=sandbox.Caps(seconds=10), on_state=kw.get("on_state"))
+
+    def wait(self, jid):
+        for _ in range(100):
+            j = self.c.get(f"/api/intake/{jid}").json()
+            if j["done"]:
+                return j
+            time.sleep(0.05)
+        self.fail("not done")
+
+    def test_bank_change_email_is_held_until_controller_approves(self):
+        self.use({"vendor": "Granite Peak Refrigerants", "total": 1236.0,
+                  "bank": {"routing": "000098765", "account_last4": "9013"}})
+        jid = self.c.post("/api/intake", json={"sample": "granite_peak_GPR-5561.eml"}).json()["id"]
+        j = self.wait(jid)
+        self.assertEqual(j["file"], "GPR-5561.docx")                       # the attachment, unwrapped
+        self.assertIn("example.net", j["sender"])
+        self.assertEqual([f["code"] for f in j["flags"]], ["bank_changed", "sender_domain"])
+        self.assertEqual(self.c.post(f"/api/intake/{jid}/pay").status_code, 409)
+        self.c.post(f"/api/intake/{jid}/approve")
+        self.assertEqual(self.c.post(f"/api/intake/{jid}/pay").status_code, 200)
+        self.assertEqual(j["states"][-1]["state"], "destroyed")
+
+    def test_clean_invoice_pays_straight_away(self):
+        self.use({"vendor": "Bonneville Sheet Metal Supply", "total": 736.81,
+                  "bank": {"routing": "000012345", "account_last4": "4471"}})
+        jid = self.c.post("/api/intake", json={"sample": "bonneville_BSM-24117.pdf"}).json()["id"]
+        self.wait(jid)
+        self.assertEqual(self.c.post(f"/api/intake/{jid}/pay").status_code, 200)
+
+    def test_samples_and_path_traversal(self):
+        self.assertIn("jordan_river_JRP-7781_TESTFILE.docx", self.c.get("/api/samples").json())
+        self.assertEqual(self.c.post("/api/intake", json={"sample": "../../app/web.py"}).status_code, 404)
+
+
+if __name__ == "__main__":
+    unittest.main()
