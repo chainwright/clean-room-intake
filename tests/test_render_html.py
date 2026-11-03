@@ -1,6 +1,6 @@
 """HTML invoice: the room renders a preview with a real Chromium and reads its net log. Runs only where a Chromium is
 available (the VM image; on a Mac set CLEANROOM_CHROME to Google Chrome). No walls here: on a laptop the page's
-requests fail because collect.attacker.example is a reserved name that resolves nowhere."""
+requests fail because the room has no network (example.com and 1.1.1.1 both answer from outside)."""
 import os
 import sys
 import unittest
@@ -24,8 +24,8 @@ class RenderHtml(unittest.TestCase):
         step = "def extract(p):\n    return {'text': open(p, 'rb').read().decode()}\n"
         r = sandbox.run(data, step, sandbox.Caps(seconds=40), cmd_for=local, render_html=True)
         urls = [a["detail"] for a in r.attempts if a["what"] == "browser"]
-        self.assertTrue(any("collect.attacker.example/pixel.png" in u for u in urls), r.attempts)
-        self.assertTrue(any("collect.attacker.example/?d=" in u for u in urls), r.attempts)
+        self.assertTrue(any("example.com/pixel.png" in u for u in urls), r.attempts)
+        self.assertTrue(any("1.1.1.1/cdn-cgi/trace?d=" in u for u in urls), r.attempts)
         self.assertIn("TOTAL DUE $418.20", r.result["text"])
 
 

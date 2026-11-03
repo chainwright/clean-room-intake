@@ -30,6 +30,8 @@ def _domain(email: Optional[str]) -> str:
 
 
 ROUTING = re.compile(r"(?<!\d)(\d{9})(?!\d)")
+# account numbers as invoices print them: "****9013", "account ending 9013", "Acct #: 000123459013", "account 9013"
+ACCOUNT = re.compile(r"(?i)(?:\*{2,}\s*|x{2,}\s*|ending(?:\s+in)?\s+|acc(?:oun)?t\.?\s*(?:no\.?|number|#)?\s*:?\s*)(\d{4,17})\b")
 BANKISH = re.compile(r"(?i)\b(routing|aba|account\s*(no|number|#)?|acct|iban|swift|bic|wire|ach|bank)\b")
 
 
@@ -90,7 +92,13 @@ def check(fields: dict, sender: Optional[str] = None, text: str = "", notes: Opt
         return out
     r, a = re.sub(r"\D", "", bank.get("routing") or ""), re.sub(r"\D", "", bank.get("account_last4") or "")
     in_text = set(ROUTING.findall(_digits(text)))
-    changed = (r and r != h["routing"]) or (a and a != h["account_last4"]) or bool(in_text - {h["routing"]})
+    accts = {m[-4:] for m in ACCOUNT.findall(_digits(text)) if m[-4:] != h["routing"][-4:] or len(m) != 9}
+    changed = (r and r != h["routing"]) or (a and a != h["account_last4"]) or bool(in_text - {h["routing"]}) \
+        or bool(accts - {h["account_last4"]})          # an account in the file's own text that isn't the one on file
+    if not changed and r and not a:
+        out.append({"code": "bank_unread", "blocks": True,
+                    "text": "The model reported a routing number but no account. Check the account against the vendor's "
+                            "record before paying."})
     if not changed and not (r or a) and text and BANKISH.search(text) and h["routing"] not in in_text:
         # the file talks about bank details but the model reported none, and the known account isn't in the text:
         # don't assume nothing changed

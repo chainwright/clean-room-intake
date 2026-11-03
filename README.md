@@ -92,6 +92,10 @@ VULTR_INFERENCE_KEY=... CLEANROOM_MODEL=... .venv/bin/uvicorn app.web:app
   `setuid(0)`, grab 1 GB, fork 500 processes. The two attacks that end a room are judged from outside (exit code, and
   the forks the room's own audit hook recorded).
 - The vendor history (last invoice and bank details per vendor) is seeded; in a real shop it comes from the AP system.
+- **What runs outside the room, said plainly:** a forwarded `.eml` is unpacked on the server by Python's standard
+  `email` parser to get the sender and the attachment (the attachment itself only ever opens in the room); the app user
+  is in the `docker` group, which on Docker is root-equivalent on the VM (a production install would use rootless
+  Docker or a separate launcher); receipts live in memory for the demo and are gone after a restart.
 - **The demo has no login.** Each browser gets its own desk (a random visitor id in a cookie): it sees, approves and
   pays only its own files; another visitor's file answers 404. Approving is a click, not a signed-in controller; a real
   deployment sits behind the company's sign-in, with approvals tied to the controller's account.

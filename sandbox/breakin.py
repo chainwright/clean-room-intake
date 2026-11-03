@@ -47,11 +47,12 @@ def host_files():
 
 def write_root():
     try:
-        with open("/payload.sh", "w") as f:
+        with open("/var/tmp/payload.sh", "w") as f:      # /var/tmp is writable by anyone on a normal system
             f.write("echo hi\n")
-        probe("leave something behind", "write /payload.sh", "written", False)
+        probe("leave something behind", "write /var/tmp/payload.sh (writable by anyone on a normal system)", "written", False)
     except OSError as e:
-        probe("leave something behind", "write /payload.sh", f"refused · {e.strerror or type(e).__name__}", True)
+        probe("leave something behind", "write /var/tmp/payload.sh (writable by anyone on a normal system)",
+              f"refused · {e.strerror or type(e).__name__}", True)
 
 
 def dns():

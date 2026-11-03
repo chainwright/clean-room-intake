@@ -270,3 +270,23 @@ class Visitors(unittest.TestCase):
         self.assertEqual(other.post("/api/intake/mine/pay").status_code, 404)
         self.assertEqual([i["id"] for i in other.get("/api/intakes").json()], [])
         self.assertEqual([i["id"] for i in me.get("/api/intakes").json()], ["mine"])
+
+
+class AccountInText(unittest.TestCase):
+    """Round-7 judge: same routing, new account, model leaves the account out -> must hold."""
+    def test_new_account_in_text_same_routing_holds(self):
+        txt = "Granite Peak Refrigerants INVOICE GPR-5561 TOTAL $1,236.00 routing 000067890 account ****5555"
+        f = web.flags.check({"vendor": "Granite Peak Refrigerants", "invoice_no": "GPR-5561", "total": 1236.0,
+                             "bank": {"routing": "000067890", "account_last4": None}}, text=txt)
+        self.assertIn("bank_changed", [x["code"] for x in f])
+
+    def test_routing_without_account_holds(self):
+        txt = "Granite Peak Refrigerants INVOICE GPR-5561 TOTAL $1,236.00 routing 000067890"
+        f = web.flags.check({"vendor": "Granite Peak Refrigerants", "invoice_no": "GPR-5561", "total": 1236.0,
+                             "bank": {"routing": "000067890", "account_last4": None}}, text=txt)
+        self.assertIn("bank_unread", [x["code"] for x in f])
+
+    def test_same_routing_same_account_pays(self):
+        txt = "Granite Peak Refrigerants INVOICE GPR-5561 TOTAL $1,236.00 routing 000067890 account ending 2208"
+        self.assertEqual(web.flags.check({"vendor": "Granite Peak Refrigerants", "invoice_no": "GPR-5561", "total": 1236.0,
+                                          "bank": {"routing": "000067890", "account_last4": "2208"}}, text=txt), [])
