@@ -147,3 +147,29 @@ class BreakIn(unittest.TestCase):
     def test_a_wall_that_failed_is_shown_as_failed(self):
         got = {"attack": "call home by IP", "how": "", "outcome": "connected", "held": False, "t": 0.1}
         self.assertFalse(web.settle([self.room("a", 0, "", [got])])[0]["held"])
+
+
+class Control(unittest.TestCase):
+    """The outside check must never become a way out for a stranger's file."""
+
+    def setUp(self):
+        self.calls = []
+        self._open = web.urllib.request.OpenerDirector.open
+        web.urllib.request.OpenerDirector.open = lambda me, url, timeout=None: self.calls.append(url) or (_ for _ in ()).throw(OSError("x"))
+
+    def tearDown(self):
+        web.urllib.request.OpenerDirector.open = self._open
+
+    def att(self, url):
+        return {"what": "browser", "detail": f"{url} (ERR_NAME_NOT_RESOLVED)"}
+
+    def test_strangers_file_gets_no_outside_check(self):
+        self.assertEqual(web.control("invoice.html", [self.att("https://example.com/x")]), [])
+        self.assertEqual(self.calls, [])
+
+    def test_only_allowlisted_hosts_even_for_our_test_file(self):
+        out = web.control("wasatch_valve_WVS-3310_TESTFILE.html",
+                          [self.att("http://169.254.169.254/latest"), self.att("https://evil.example/p"),
+                           self.att("https://example.com/pixel.png?i=1"), self.att("https://1.1.1.1/t?d=x")])
+        self.assertEqual([c["host"] for c in out], ["https://example.com", "https://1.1.1.1"])
+        self.assertEqual(self.calls, ["https://example.com/", "https://1.1.1.1/"])   # bare host, nothing from the file

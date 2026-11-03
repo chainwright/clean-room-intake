@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import email
 import urllib.error
+import urllib.request
 import os
 import re
 import threading
@@ -58,19 +59,31 @@ def _unwrap_email(name: str, data: bytes):
     return name, data, sender
 
 
-def control(attempts: list) -> list:
-    """The same hosts, checked from the server OUTSIDE the room (bare scheme://host/, nothing from the file sent):
-    proof that a failure inside the room came from the room's walls, not from an address that doesn't exist."""
-    import urllib.request
+CONTROL_HOSTS = {"https://example.com", "https://1.1.1.1"}   # the only hosts our own HTML test file calls
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *a, **k):
+        return None
+
+
+def control(name: str, attempts: list) -> list:
+    """For OUR OWN test files only: check the hosts the page tried, from the server outside the room, as proof that the
+    failure inside came from the room's walls and not from a dead address. Never for a stranger's file (that would let
+    a file make the server call out for it): an allowlist of our two demo hosts, bare scheme://host/, no redirects,
+    at most two requests, nothing from the file sent."""
+    if "TESTFILE" not in name or not os.path.isfile(os.path.join(INBOX, os.path.basename(name))):
+        return []
+    opener = urllib.request.build_opener(_NoRedirect)
     seen, out = set(), []
     for a in attempts:
         m = re.match(r"(https?://[^/\s'\"]+)", a.get("detail", ""))
-        if a.get("what") != "browser" or not m or m.group(1) in seen:
+        if a.get("what") != "browser" or not m or m.group(1) not in CONTROL_HOSTS or m.group(1) in seen or len(seen) >= 2:
             continue
         seen.add(m.group(1))
         t = time.time()
         try:
-            with urllib.request.urlopen(urllib.request.Request(m.group(1) + "/", method="GET"), timeout=4) as r:
+            with opener.open(m.group(1) + "/", timeout=4) as r:
                 res = f"HTTP {r.status}"
         except urllib.error.HTTPError as e:
             res = f"HTTP {e.code}"
@@ -94,7 +107,7 @@ def _work(job_id: str, name: str, data: bytes, sender: str):
         else:
             it = agent.run(name, data, on_state=on_state)
         f = flags.check(it.fields, sender=sender or None)
-        ctl = [] if devmode.ON else control([a for t in it.tries for a in t["receipt"]["attempts"]])
+        ctl = [] if devmode.ON else control(name, [a for t in it.tries for a in t["receipt"]["attempts"]])
         with LOCK:
             job.update(kind=it.kind, fields=it.fields, text=it.text, notes=it.flags, control=ctl,
                        flags=f, hold=flags.hold_text(f, (it.fields or {}).get("vendor", "")),
