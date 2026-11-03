@@ -9,7 +9,7 @@ destroyed afterwards. The clerk gets clean fields and a plain-text copy. The con
 file tried to do and what stopped it, plus the check that pays for itself: **the bank details on this invoice differ
 from the vendor's last one.**
 
-> Demo: http://149.248.46.73 (Vultr Cloud Compute, Seattle) · Video: ⟨link⟩ · Track 1, Blast Radius Zero
+> Demo: https://149-248-46-73.sslip.io (Vultr Cloud Compute, Seattle; Caddy + Let's Encrypt in front) · Video: ⟨link⟩ · Track 1, Blast Radius Zero
 
 ## Use case
 Marisol Reyes does accounts payable at a 40-person HVAC company in Salt Lake City. Every day she opens 30 to 80

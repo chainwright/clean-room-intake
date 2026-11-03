@@ -18,10 +18,17 @@ After=docker.service
 User=cleanroom
 WorkingDirectory=/opt/clean-room-intake
 EnvironmentFile=/etc/cleanroom.env
-ExecStart=/opt/clean-room-intake/.venv/bin/uvicorn app.web:app --host 0.0.0.0 --port 80
-AmbientCapabilities=CAP_NET_BIND_SERVICE
+ExecStart=/opt/clean-room-intake/.venv/bin/uvicorn app.web:app --host 127.0.0.1 --port 8080
 Restart=always
 [Install]
 WantedBy=multi-user.target
 UNIT
 systemctl daemon-reload && systemctl enable --now cleanroom
+# HTTPS: Caddy in front, certificate for <ip-with-dashes>.sslip.io
+IP=$(curl -fs4 https://api.ipify.org || hostname -I | awk '{print $1}')
+echo "CLEANROOM_HOST=$(echo "$IP" | tr . -).sslip.io" > /etc/default/caddy
+cp deploy/Caddyfile /etc/caddy/Caddyfile
+mkdir -p /etc/systemd/system/caddy.service.d
+printf '[Service]\nEnvironmentFile=/etc/default/caddy\n' > /etc/systemd/system/caddy.service.d/env.conf
+systemctl daemon-reload && systemctl restart caddy
+echo "demo: https://$(echo "$IP" | tr . -).sslip.io"

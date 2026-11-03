@@ -1,0 +1,12 @@
+# HTTPS in front of the app (Chrome's secure-connections mode turns a plain http:// demo into an empty error page).
+# sslip.io maps the name to the VM's IP, so Let's Encrypt can issue a certificate without owning a domain.
+# Set CLEANROOM_HOST in /etc/default/caddy to <ip-with-dashes>.sslip.io (deploy/setup.sh does it).
+{$CLEANROOM_HOST} {
+	encode gzip
+	reverse_proxy 127.0.0.1:8080
+}
+
+# the bare IP (http) sends people to the https name
+http:// {
+	redir https://{$CLEANROOM_HOST}{uri} permanent
+}

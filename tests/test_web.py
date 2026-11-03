@@ -108,3 +108,16 @@ class Quota(unittest.TestCase):
         self.assertIn("rooms are open", e.exception.detail)
         web.JOBS["x"]["done"] = True
         web._admit("1.1.1.1")
+
+
+class Visitor(unittest.TestCase):
+    def req(self, host, xff=""):
+        from starlette.requests import Request
+        h = [(b"x-forwarded-for", xff.encode())] if xff else []
+        return Request({"type": "http", "client": (host, 1), "headers": h, "method": "POST", "path": "/"})
+
+    def test_behind_caddy_uses_forwarded_client(self):
+        self.assertEqual(web._visitor(self.req("127.0.0.1", "203.0.113.7")), "203.0.113.7")
+
+    def test_direct_client_cannot_spoof(self):
+        self.assertEqual(web._visitor(self.req("198.51.100.4", "1.2.3.4")), "198.51.100.4")

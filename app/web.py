@@ -80,6 +80,15 @@ def _work(job_id: str, name: str, data: bytes, sender: str):
             job.update(error=f"{type(e).__name__}: {e}"[:300], state="failed", done=True)
 
 
+def _visitor(req: Request) -> str:
+    """Who is asking. Behind Caddy (on this VM) the socket is 127.0.0.1 and Caddy writes the real client into
+    X-Forwarded-For, replacing anything the client sent; from anywhere else the header is ignored."""
+    host = req.client.host if req.client else "?"
+    if host in ("127.0.0.1", "::1"):
+        return req.headers.get("x-forwarded-for", "").split(",")[0].strip() or host
+    return host
+
+
 def _admit(ip: str) -> None:
     now = time.gmtime()
     h, d = time.strftime("%Y%m%d%H", now), time.strftime("%Y%m%d", now)
@@ -116,7 +125,7 @@ def _start(name: str, data: bytes) -> str:
 
 @app.post("/api/intake")
 async def intake(req: Request, file: Optional[UploadFile] = File(default=None)):
-    _admit(req.client.host if req.client else "?")   # no proxy in front: the socket address, not a header anyone can set
+    _admit(_visitor(req))
     if file is not None:
         return {"id": _start(file.filename or "file", await file.read())}
     b = await req.json()
