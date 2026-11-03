@@ -83,7 +83,10 @@ NETLOG = os.path.join(os.path.dirname(RUNNER), "netlog.py")
 def run(file_bytes: bytes, step_code: str, caps: Caps = Caps(), cmd_for=docker_cmd, render_html: bool = False) -> Receipt:
     room = "cr-" + uuid.uuid4().hex[:12]
     r = Receipt(room=room, image=IMAGE, runtime=RUNTIME, caps=asdict(caps))
-    work = tempfile.mkdtemp(prefix=room + "-")
+    base = os.environ.get("CLEANROOM_WORK")              # where per-file folders go (must be visible to Docker)
+    if base:
+        os.makedirs(base, exist_ok=True)
+    work = tempfile.mkdtemp(prefix=room + "-", dir=base)
     try:
         with open(os.path.join(work, "file"), "wb") as f:
             f.write(file_bytes)

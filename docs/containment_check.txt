@@ -1,0 +1,35 @@
+# containment check · 2026-11-03T12:29Z · Darwin arm64 · runsc  · laptop run (Colima VM, Ubuntu 24.04 aarch64, runsc release-20261102.0); the Vultr VM run replaces this
+
+## kernel (gVisor)
+[    0.000000] Starting gVisor...
+exit=0
+
+## network
+blocked: gaierror [Errno -3] Temporary failure in name resolution
+exit=0
+
+## environment of the container (names only)
+GPG_KEY HOME HOSTNAME LANG PATH PWD PYTHON_SHA256 PYTHON_VERSION 
+exit=0
+
+## write to the root filesystem
+sh: 1: cannot create /x: Permission denied
+read-only: refused
+exit=0
+
+## memory cap (try to allocate 1 GB)
+
+exit=137
+
+## process cap (start 500 sleeping processes)
+stopped after 51 processes: [Errno 12] Cannot allocate memory: 'sleep'
+exit=0
+
+## privileges
+uid=65534(nobody) gid=65534(nogroup) groups=65534(nogroup)
+CapPrm:	0000000000000000
+CapEff:	0000000000000000
+exit=0
+
+## leftovers after all runs
+containers: 0

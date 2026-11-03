@@ -22,6 +22,7 @@ WATCH = {"socket.connect", "socket.getaddrinfo", "socket.gethostbyname", "urllib
          "os.system", "os.exec", "os.posix_spawn", "os.fork", "ctypes.dlopen", "open"}
 
 
+TOOLS = {"tesseract"}
 SENSITIVE = ("/etc/", "/proc/", "/sys/", "/root", "/home/", "/run/", "/var/run/")
 
 
@@ -34,8 +35,14 @@ def emit(**kw):
 def hook(event, args):
     if event not in WATCH:
         return
+    if event == "subprocess.Popen" and os.path.basename(str(args[0])) in TOOLS:
+        return                                    # the OCR engine the step is allowed to call
     if event == "open":
+        if not isinstance(args[0], (str, bytes)):  # an already-open file descriptor
+            return
         path, mode = str(args[0]), str(args[1] or "r") if len(args) > 1 else "r"
+        if path == "/tmp":
+            return
         writing = any(c in mode for c in "wax+")
         # reading libraries and the input is normal; writing anywhere, or reading where secrets live, is an attempt
         if path.startswith("/tmp/") or (not writing and not path.startswith(SENSITIVE)):   # /tmp is the scratch tmpfs
@@ -65,7 +72,8 @@ class WatchedEnv(dict):
         return super().get(k, default)
 
 
-CHROME_FLAGS = ["--headless=new", "--disable-gpu", "--no-sandbox",   # gVisor is the sandbox; check --single-process on the VM if memory is tight
+CHROME_FLAGS = ["--headless=new", "--disable-gpu", "--no-sandbox", "--no-zygote", "--disable-crash-reporter",
+                "--disable-breakpad", "--disable-dev-shm-usage",   # gVisor is the sandbox; check --single-process on the VM if memory is tight
                 "--disable-background-networking", "--disable-component-update", "--disable-sync", "--no-first-run",
                 "--disable-default-apps", "--window-size=1000,1300"]
 
@@ -85,7 +93,8 @@ def render_preview(path):
             dst.write(src.read())
     try:
         subprocess.run([chrome, *CHROME_FLAGS, "--user-data-dir=/tmp/chrome", f"--log-net-log={log}",
-                        f"--screenshot={shot}", "file://" + html], capture_output=True, timeout=20)
+                        f"--screenshot={shot}", "file://" + html], capture_output=True, timeout=20,
+                       env={**os.environ, "HOME": "/tmp"})     # read-only root: the browser's profile lives in /tmp
     except Exception as e:
         emit(ev="note", note=f"preview renderer didn't run: {type(e).__name__}")
         return
@@ -99,6 +108,11 @@ def render_preview(path):
 def main():
     if os.path.exists(IN + "/render_html"):     # the orchestrator asks for a preview render (HTML invoices)
         render_preview(IN + "/file")            # before the audit hook: the renderer's own subprocess isn't the step
+    # the step sees only what a program needs to run; the base image's own variables (e.g. Python's public GPG_KEY
+    # fingerprint) are dropped too, so "secrets inside: 0" holds for the step, not just for our flags
+    for k in list(os.environ):
+        if k not in ("PATH", "HOME", "LANG", "LC_ALL", "CLEANROOM_CHROME"):
+            del os.environ[k]
     os.environ = WatchedEnv(os.environ)          # noqa: B003 (deliberate)
     sys.addaudithook(hook)
     ns = {"__name__": "step", "FILE": IN + "/file"}

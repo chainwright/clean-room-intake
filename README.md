@@ -49,16 +49,16 @@ Clean Room Intake removes the choice:
 The model never sees the file, only the text that came out of the sandbox. The sandbox never sees the key.
 
 ## Containment (the walls, with numbers)
-| Wall | Setting | Checked on the VM (`deploy/containment_check.sh`) |
+| Wall | Setting | Checked (`deploy/containment_check.sh`, laptop gVisor run 03.11; the Vultr VM run replaces it) |
 |---|---|---|
-| Kernel | gVisor `runsc` between the file and the host | ⟨dmesg shows gVisor⟩ |
-| Network | `--network=none` | ⟨urlopen fails⟩ |
-| Secrets | no environment passed in; the key stays in `/etc/cleanroom.env` for the orchestrator only | ⟨0 variables with KEY⟩ |
-| Filesystem | `--read-only`, 64 MB tmpfs, input mounted read-only | ⟨write to / fails⟩ |
-| Memory | 512 MB, no swap | ⟨10 GB string killed⟩ |
-| Processes | 128 pids | ⟨fork loop capped⟩ |
-| Time | 30 s, then `docker rm -f` | ⟨no leftovers⟩ |
-| Privileges | `--cap-drop=ALL`, `no-new-privileges`, user 65534 | |
+| Kernel | gVisor `runsc` between the file and the host | `dmesg`: "Starting gVisor..." |
+| Network | `--network=none` | connect to example.com: name resolution fails |
+| Secrets | no environment passed in; the key stays in `/etc/cleanroom.env` for the orchestrator only; the runner drops the base image's variables before the step runs | the step sees only `HOME LANG PATH` |
+| Filesystem | `--read-only`, 64 MB tmpfs, input mounted read-only | write to `/`: refused |
+| Memory | 512 MB, no swap | 1 GB allocation: killed (exit 137) |
+| Processes | 128 pids | 500 process starts: stopped after 51 (memory runs out first) |
+| Time | 30 s, then `docker rm -f` | containers left after all runs: 0 |
+| Privileges | `--cap-drop=ALL`, `no-new-privileges`, user 65534 | `CapEff 0000000000000000`, uid 65534 |
 
 The receipt shows both sides: what the file tried (from inside), and which wall stopped it (from outside).
 
