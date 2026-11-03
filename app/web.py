@@ -113,9 +113,12 @@ def control(name: str, attempts: list, data: bytes = b"") -> list:
 def _work(job_id: str, name: str, data: bytes, sender: str):
     job = JOBS[job_id]
 
-    def on_state(s):
+    def on_state(s, why=""):
         with LOCK:
-            job["states"].append({"state": s, "at": time.time()})
+            st = {"state": s, "at": time.time()}
+            if why:
+                st["why"] = str(why)[:90]       # room-side text: shown escaped, never fed anywhere but the model's retry
+            job["states"].append(st)
             job["state"] = s
 
     try:

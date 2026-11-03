@@ -103,14 +103,15 @@ def run(filename: str, data: bytes, llm: Optional[Callable] = None, cmd_for=sand
         caps: sandbox.Caps = sandbox.Caps(), on_state: Callable[[str], None] = lambda s: None) -> Intake:
     it = Intake(filename=filename, kind=kind_of(filename, data[:8]))
 
-    def state(s):
+    def state(s, why=""):
         it.state = s
-        on_state(s)
+        on_state(s, why) if why else on_state(s)      # a retry carries the reason the last step failed, live
 
     # the file's name is the sender's text too: it never goes into a prompt (only the kind we detected, and the size)
     ask = f"File kind: {it.kind}. Size: {len(data)} bytes. Write extract(path)."
+    why = ""
     for attempt in range(MAX_RETRIES + 1):
-        state("writing_step" if attempt == 0 else "retry")       # the model writes extract() (outside the room)
+        state("writing_step" if attempt == 0 else "retry", why)  # the model writes extract() (outside the room)
         step = _code(_chat(STEP_SYSTEM, ask, llm))
         state("sandbox_up")
         state("opening")

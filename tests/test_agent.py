@@ -34,18 +34,18 @@ class Loop(unittest.TestCase):
                         {"vendor": "Bonneville Sheet Metal Supply", "total": 736.81})
         states = []
         it = agent.run("x.pdf", b"Bonneville Sheet Metal Supply Total $736.81", llm=llm, cmd_for=local,
-                       caps=sandbox.Caps(seconds=10), on_state=states.append)
+                       caps=sandbox.Caps(seconds=10), on_state=lambda s, why='': states.append((s, why)))
         self.assertEqual(it.fields["total"], 736.81)
         self.assertEqual(len(it.tries), 2)
         self.assertIn("ValueError: no text layer", llm.calls[1][1])      # the error went back to the model
-        self.assertEqual(states[-2:], ["extracted", "destroyed"])
-        self.assertIn("retry", states)
+        self.assertEqual([s for s, _ in states[-2:]], ["extracted", "destroyed"])
+        self.assertIn(("retry", "ValueError: no text layer"), states)       # the reason travels with the live state
 
     def test_gives_up_after_retries_and_still_destroys(self):
         bad = "def extract(path):\n    raise RuntimeError('broken')\n"
         llm = FakeModel([bad] * 3, {})
         states = []
-        it = agent.run("x.pdf", b"%PDF", llm=llm, cmd_for=local, caps=sandbox.Caps(seconds=10), on_state=states.append)
+        it = agent.run("x.pdf", b"%PDF", llm=llm, cmd_for=local, caps=sandbox.Caps(seconds=10), on_state=lambda s, why='': states.append(s))
         self.assertEqual(it.state, "destroyed")
         self.assertIn("failed", states)
         self.assertEqual(len(it.tries), agent.MAX_RETRIES + 1)
