@@ -3,3 +3,4 @@ __pycache__/
 .env
 *.bak
 .venv/
+docs/slides.pdf

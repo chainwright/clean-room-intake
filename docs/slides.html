@@ -19,7 +19,7 @@ table{border-collapse:collapse;font-size:22px;width:100%}td{padding:10px 14px;bo
 </style></head><body>
 
 <section><div class="k">The problem</div><div class="big">$3.05B</div>
-<p>reported lost to business email compromise in the US in 2025. A changed bank account on a normal-looking invoice is one of the oldest moves.</p>
+<p>reported lost to business email compromise in the US in 2025.</p>
 <div class="src">FBI IC3, 2025 Internet Crime Report, p. 8</div><div class="foot">Clean Room Intake</div></section>
 
 <section><div class="k">Who it's for</div><h2>Marisol opens 30–80 invoices a day from people she has never met.</h2>
@@ -46,9 +46,10 @@ table{border-collapse:collapse;font-size:22px;width:100%}td{padding:10px 14px;bo
 
 <section class="dark"><div class="k">The containment moment · our own harmless test file</div>
 <h2>An HTML invoice tried to call home. Twice.</h2>
-<p class="x">✕ the page tried to load collect.attacker.example · no network</p>
-<p class="x">✕ … with the invoice title in the URL · no network</p>
-<p>Recorded by the renderer itself (Chromium's net log), inside the room. The clerk still got $418.20, due 12/01.</p>
+<img class="shot" src="shot_real_html.png" style="width:760px;float:right;margin-left:24px">
+<p class="x">✕ image ← collect.attacker.example</p>
+<p class="x">✕ page title → collect.attacker.example</p>
+<p style="font-size:22px">Recorded by the renderer itself (Chromium's net log), inside a room with no network. The clerk still got $418.20, due 12/01.</p>
 <div class="foot">Clean Room Intake</div></section>
 
 <section><div class="k">The check a scanner can't do</div><h2>Clean file. Wrong bank.</h2>
