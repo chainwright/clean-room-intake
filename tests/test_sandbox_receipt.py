@@ -53,6 +53,16 @@ class Receipt(unittest.TestCase):
         r = sandbox.run(b"x", "def extract(p):\n    raise ValueError('bad pdf')\n", sandbox.Caps(seconds=5), cmd_for=local)
         self.assertIn("ValueError: bad pdf", r.error)
 
+    def test_files_are_readable_by_the_nobody_user(self):
+        seen = {}
+
+        def spy(room, work, caps):
+            seen.update({n: oct(os.stat(os.path.join(work, n)).st_mode & 0o777) for n in ("file", "step.py", "runner.py")})
+            seen["dir"] = oct(os.stat(work).st_mode & 0o777)
+            return local(room, work, caps)
+        sandbox.run(b"x", GOOD, sandbox.Caps(seconds=10), cmd_for=spy)
+        self.assertEqual(seen, {"file": "0o444", "step.py": "0o444", "runner.py": "0o444", "dir": "0o755"})
+
     def test_docker_command_has_every_wall(self):
         cmd = " ".join(sandbox.docker_cmd("cr-x", "/w", sandbox.Caps()))
         for wall in ("--network=none", "--read-only", "--memory=512m", "--pids-limit=128", "--cap-drop=ALL",

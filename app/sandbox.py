@@ -87,7 +87,10 @@ def run(file_bytes: bytes, step_code: str, caps: Caps = Caps(), cmd_for=docker_c
         with open(os.path.join(work, "step.py"), "w") as f:
             f.write(step_code)
         shutil.copy(RUNNER, os.path.join(work, "runner.py"))
+        # the container runs as nobody (65534): it must be able to read these, and nothing more
         os.chmod(work, 0o755)
+        for n in ("file", "step.py", "runner.py"):
+            os.chmod(os.path.join(work, n), 0o444)
         r.started = time.time()
         try:
             p = subprocess.run(cmd_for(room, work, caps), capture_output=True, text=True, timeout=caps.seconds)
