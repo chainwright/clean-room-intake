@@ -143,3 +143,11 @@ class Round16FullAccount(unittest.TestCase):
                          "bank": {"routing": "000012345", "account_last4": "4471"}},
                         text="Bonneville Sheet Metal Supply BSM-24117 TOTAL $736.81 routing 000012345 account 000031904471")
         self.assertEqual(f, [])
+
+
+class UnknownPayMethod(unittest.TestCase):
+    def test_unknown_method_is_not_a_change(self):
+        f = flags.check({"vendor": "Bonneville Sheet Metal Supply", "invoice_no": "BSM-24117", "total": 736.81, "pay_method": "unknown",
+                         "bank": {"routing": "000012345", "account_last4": "4471"}},
+                        text="Bonneville Sheet Metal Supply BSM-24117 TOTAL $736.81 routing 000012345 account ****4471")
+        self.assertEqual(f, [])

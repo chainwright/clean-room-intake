@@ -128,6 +128,8 @@ def check(fields: dict, sender: Optional[str] = None, text: str = "", notes: Opt
         return out
     usual = h.get("pay_method")
     pm = (fields.get("pay_method") or "").lower()
+    if pm in ("unknown", "none", "null", "n/a"):
+        pm = ""                                       # the model didn't see a method: not a change (the text checks still run)
     rail = OTHER_RAIL.search(text or "")
     if (pm and usual and pm != usual) or rail:
         how = rail.group(0) if rail else pm
