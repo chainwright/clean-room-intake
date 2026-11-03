@@ -87,7 +87,10 @@ def verify(fields: dict, text: str) -> List[dict]:
         if value in (None, ""):
             continue
         hay = re.sub(r"\s+", " ", low) if name in ("invoice", "vendor") else _digits(t) if name in ("routing", "account") else t
-        found = any(f and f in hay for f in forms)
+        # a whole value, not part of a bigger one: $36.81 is not "found" in $736.81, 4471 not in 44712
+        left = r"(?<![\d.,])" if name in ("amount", "routing") else r"(?<![\w])" if name == "invoice" else ""
+        right = r"(?![\d])" if name != "vendor" else ""
+        found = any(f and re.search(left + re.escape(f) + right, hay) for f in forms)
         rows.append({"field": name, "value": value, "found": found})
     return rows
 
@@ -108,7 +111,7 @@ def check(fields: dict, sender: Optional[str] = None, text: str = "", notes: Opt
                         "text": f"The model reported {row['field']} {row['value']}, but it isn't in the file's text."})
     if attempts:
         out.append({"code": "tried_out", "blocks": True,
-                    "text": f"While it was open, the file tried {len(attempts)} thing(s) a normal invoice never does "
+                    "text": f"While it was open, the file tried {len(attempts)} {'thing' if len(attempts) == 1 else 'things'} a normal invoice never does "
                             "(stopped by the room). A person should look at it before it is paid."})
     if any("instruction" in n.lower() for n in (notes or [])):
         out.append({"code": "hidden_instructions", "blocks": True,
@@ -151,6 +154,11 @@ def check(fields: dict, sender: Optional[str] = None, text: str = "", notes: Opt
     accts = {m[-4:] for m in ACCOUNT.findall(_digits(text)) if m[-4:] != h["routing"][-4:] or len(m) != 9}
     # a long number after any pay word that is neither the routing nor the account on file
     stray = {n for n in PAYNUM.findall(_digits(text)) if n != h["routing"] and n[-4:] != h["account_last4"]}
+    # every long number on a line that talks about paying, not only the first one after a label
+    # ("Routing/Account: 000012345 / 000099998888")
+    for line in _digits(text).splitlines():
+        if BANKISH.search(line) or PAYNUM.search(line):
+            stray |= {n for n in re.findall(r"(?<!\d)(\d{6,17})(?!\d)", line) if n != h["routing"] and n[-4:] != h["account_last4"]}
     changed = (r and r != h["routing"]) or (a and a != h["account_last4"]) or bool(in_text - {h["routing"]}) \
         or bool(accts - {h["account_last4"]}) or bool(stray)  # a number in the file's own text that isn't the one on file
     if not changed and text and SPELLED.search(text) and (BANKISH.search(text) or NUMBERISH.search(text)):
