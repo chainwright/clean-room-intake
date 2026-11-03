@@ -11,6 +11,16 @@ from the vendor's last one.**
 
 > Demo: https://149-248-46-73.sslip.io (Vultr Cloud Compute, Seattle; Caddy + Let's Encrypt in front) · Video: ⟨link⟩ · Track 1, Blast Radius Zero
 
+## For judges: 60 seconds
+1. Open https://149-248-46-73.sslip.io. No login, nothing to upload: the sample inbox is on the page.
+2. Click **Granite Peak**: a clean invoice with a new bank account from a look-alike sender → **HOLD · CALL VENDOR**.
+3. Click **Wasatch (test, HTML)**: our own harmless test file tries to reach two real addresses while it's open →
+   both fail inside the room, both answer from the same server outside it → held for a person.
+4. Click **try to break the room**: our attack script, 11 attempts, fresh rooms with the same walls → 0 of 11 get through.
+5. Open **Controller receipts**: a receipt per file; a money hold can't be approved without a written call note.
+Evidence: `docs/containment_check_vultr.txt` (the walls, measured on the VM), `docs/breakin_controls.json` (same script in
+the room / a plain container / walls down: 0 / 1 / 6 got through), `docs/e2e_vultr.json` (all samples end to end with the real model).
+
 ## Use case
 Marisol Reyes does accounts payable at a 40-person HVAC company in Salt Lake City. Every day she opens 30 to 80
 invoices from people she has never met: PDFs, phone scans, Word files, emails with attachments. Today she has two bad
@@ -78,6 +88,18 @@ The receipt shows both sides: what the file tried (from inside), and which wall 
 The "tried" lines are recorded inside the room by the same process that runs the model's code, so they are evidence,
 not enforcement: code in the room could hide its own attempts, but it can't get through the walls, which Docker and
 gVisor enforce from outside. The room's output is read with a 2 MB cap, so it can't flood the orchestrator either.
+
+## Deploy on Vultr
+```
+VULTR_API_KEY=... python3 deploy/provision.py plan   # shows the region, plan and OS it would use; changes nothing
+VULTR_API_KEY=... python3 deploy/provision.py up     # ssh key + Cloud Compute VM (cloud-init: Docker + gVisor runsc + ufw)
+                                                     # + a Serverless Inference subscription
+ssh root@<vm> 'bash -s' < deploy/setup.sh           # app user, venv, runner image, systemd unit, Caddy (HTTPS via sslip.io)
+ssh root@<vm> 'bash -s' < deploy/containment_check.sh   # re-measure the walls on that VM
+```
+The account API key stays on your machine. The inference key goes only to the VM's `/etc/cleanroom.env` (mode 600),
+read by the orchestrator; no room ever gets it. Caddy terminates TLS and caps request bodies at 12 MB; the app listens
+on 127.0.0.1:8080.
 
 ## Run locally
 ```

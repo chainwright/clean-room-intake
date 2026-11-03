@@ -35,7 +35,7 @@ table{border-collapse:collapse;font-size:22px;width:100%}td{padding:10px 14px;bo
 <tr><td>2 · run</td><td>a fresh gVisor container on the Vultr VM runs it: no network, no secrets, read-only, capped</td></tr>
 <tr><td>3 · retry</td><td>error inside the room → back to the model, up to 2 more tries</td></tr>
 <tr><td>4 · read</td><td>the fields are read from the text, marked as untrusted data</td></tr>
-<tr><td>5 · check</td><td>vendor history: bank account and sender domain</td></tr>
+<tr><td>5 · check</td><td>every reported field against the room's text; vendor history: bank, pay method, address, sender domain</td></tr>
 <tr><td>6 · destroy</td><td>container removed; receipt kept</td></tr></table><div class="foot">Clean Room Intake</div></section>
 
 <section><div class="k">The walls · measured on the Vultr VM (Seattle, x86_64, runsc release-20261102.0)</div>
@@ -45,21 +45,24 @@ table{border-collapse:collapse;font-size:22px;width:100%}td{padding:10px 14px;bo
 <div class="src">deploy/containment_check.sh → docs/containment_check_vultr.txt</div><div class="foot">Clean Room Intake</div></section>
 
 <section class="dark"><div class="k">The containment moment · our own harmless test file</div>
-<h2>An HTML invoice tried to call home. Twice.</h2>
-<img class="shot" src="cover.png" style="width:760px;float:right;margin-left:24px">
-<p class="x">✕ image ← collect.attacker.example</p>
-<p class="x">✕ page title → collect.attacker.example</p>
-<p style="font-size:22px">Recorded by the renderer itself (Chromium's net log), inside a room with no network. The clerk still got $418.20, due 12/01.</p>
+<h2>An HTML invoice tried to reach two real addresses.</h2>
+<img class="shot" src="proof_inside_outside.png" style="width:100%;margin-top:6px">
+<p style="font-size:20px;margin-top:10px">Inside the room both failed (Chromium's own net log); from the same server, outside the room, both answer. The file is held for a person.</p>
 <div class="foot">Clean Room Intake</div></section>
 
+<section><div class="k">We attack the room ourselves · same script, three set-ups</div>
+<img class="shot" src="breakin_three_rooms.png" style="width:100%">
+<div class="src">docs/breakin_controls.json (script sha256 inside) · "try to break the room" is a button on the live site</div></section>
 <section><div class="k">The check a scanner can't do</div><h2>Clean file. Wrong bank.</h2>
 <p><span class="hold">HOLD</span> · New bank account (Canyon State ****2208 → Summit Ridge ****9013), sent from granitepeak-refrig.example<b>.net</b>.</p>
-<p>Payment waits until the controller approves, after a call to a number already on file.</p><div class="foot">Clean Room Intake</div></section>
+<p>Payment waits until the controller approves, and a hold about who gets the money can't be approved without a written note of the call-back.</p>
+<p style="font-size:22px">Also held: a new pay method (check instead of ACH, Zelle, crypto), a new pay-to address, a first-time vendor, a file that tried anything while open.</p><div class="foot">Clean Room Intake</div></section>
 
 <section><div class="k">Business value · next</div>
-<table><tr><td>Who pays</td><td>AP teams of 5–500 people; per seat</td></tr>
+<table><tr><td>Who pays</td><td>accounts payable teams; $15 per seat a month (a 20-person team: $300)</td></tr>
+<tr><td>Why not the AP suite</td><td>AP suites and vendor-verification tools check the bank number; nobody opens the stranger's file safely and shows what it tried. We do both, in one step.</td></tr>
 <tr><td>Replaces</td><td>"open and hope", manual retyping, after-the-fact fraud recovery</td></tr>
 <tr><td>Next</td><td>mailbox connector · vendor history from QuickBooks / NetSuite · one VM per customer</td></tr>
-<tr><td>On Vultr</td><td>Cloud Compute VM · Docker + gVisor · Serverless Inference (deepseek-v4.1-flash)</td></tr></table>
+<tr><td>On Vultr</td><td>Cloud Compute VM · Docker + gVisor · Serverless Inference (mimo-v2.6-flash)</td></tr></table>
 <div class="foot">github.com/chainwright/clean-room-intake · 149-248-46-73.sslip.io</div></section>
 </body></html>

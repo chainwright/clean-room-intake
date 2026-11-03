@@ -126,14 +126,21 @@ def _work(job_id: str, name: str, data: bytes, sender: str):
             it = agent.run(name, data, llm=devmode.fake_llm, cmd_for=devmode.local_cmd, on_state=on_state)
         else:
             it = agent.run(name, data, on_state=on_state)
-        f = flags.check(it.fields, sender=sender or None, text=it.text, notes=it.flags,
-                        attempts=[a for t in it.tries for a in t["receipt"]["attempts"]])
+        attempts = [a for t in it.tries for a in t["receipt"]["attempts"]] + list((it.survey_receipt or {}).get("attempts", []))
+        f = flags.check(it.fields, sender=sender or None, text=it.text, notes=it.flags, attempts=attempts)
         ver = flags.verify(it.fields, it.text)
-        ctl = [] if devmode.ON else control(name, [a for t in it.tries for a in t["receipt"]["attempts"]], data)
+        ctl = [] if devmode.ON else control(name, attempts, data)
+        # Pattern A's last arrow: the model explains the outcome from our own facts (never the document text);
+        # it can't change a hold: the holds above are already decided and stay as they are
+        facts = {"file_kind": it.kind, "read": bool(it.text), "tries": len(it.tries), "survey": it.survey,
+                 "fields": {k: (it.fields or {}).get(k) for k in ("vendor", "invoice_no", "total", "due_date", "pay_method")},
+                 "tried_while_open": len(attempts), "error": it.error}
+        note = agent.explain(facts, [x["code"] for x in f if x.get("blocks")],
+                             llm=devmode.fake_llm if devmode.ON else None)
         with LOCK:
             job.update(kind=it.kind, fields=it.fields, text=it.text, notes=it.flags, control=ctl, verify=ver,
-                       flags=f, hold=flags.hold_text(f, (it.fields or {}).get("vendor", "")),
-                       tries=it.tries, error=it.error, done=True)
+                       flags=f, hold=flags.hold_text(f, (it.fields or {}).get("vendor", "")), survey=it.survey,
+                       survey_receipt=it.survey_receipt, explanation=note, tries=it.tries, error=it.error, done=True)
     except Exception as e:   # the clean room must never take the app down
         with LOCK:
             job.update(error=f"{type(e).__name__}: {e}"[:300], state="failed", done=True)

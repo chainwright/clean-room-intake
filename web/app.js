@@ -101,6 +101,7 @@ function beats(j) {
       const hid = (j.notes || []).find((n) => /instruction/i.test(n));
       if (hid) out.push({ kind: "state", note: "hidden instructions inside the file · read as data, not obeyed", at: s.at });
     }
+    if (s.state === "surveyed") { out.push({ kind: "state", state: s.state, at: s.at, why: s.why || "" }); continue; }
     if (s.state === "retry") {             // say WHY the last step failed: the error the room handed back
       const prev = (j.tries || [])[room]?.receipt,
         why = s.why || (prev?.error ? prev.error.split(":")[0] : prev ? "no readable text" : "");
@@ -139,7 +140,8 @@ function tick() {
 }
 
 // ---------- the room (right) ----------
-const WORDS = { writing_step: "the model writes the extraction step · Vultr Serverless Inference", reading_fields: "the model reads the fields from the text, as data",
+const WORDS = { surveying: "room up · gVisor on Vultr · a fixed step measures the file's structure (counts only, no text)",
+  surveyed: "measured", writing_step: "the model writes the extraction step · Vultr Serverless Inference", reading_fields: "the model reads the fields from the text, as data",
   sandbox_up: "room up · gVisor on Vultr · no network · no secrets", opening: "file handed in, read-only", retry: "step failed, the model rewrites it",
   extracting: "only text passed through the drawer", extracted: "fields read", failed: "couldn't read the file", destroyed: "room destroyed ✓" };
 
@@ -158,7 +160,8 @@ function render() {
     if (b.note) { html += `<span class="t"></span><span class="m n">✕ ${esc(b.note)}</span>`; continue; }
     const t = rel(b.at), msg = b.state === "blocked" ? `fields read · ${tried.length} attempt${tried.length === 1 ? "" : "s"} stopped`
       : b.state === "writing_step" && j.model ? `${j.model} writes the extraction step · Vultr Serverless Inference`
-      : b.state === "retry" && b.why ? `step failed: ${b.why} · the model rewrites it` : (WORDS[b.state] || b.state);
+      : b.state === "retry" && b.why ? `step failed: ${b.why} · the model rewrites it`
+      : b.state === "surveyed" ? `measured: ${b.why} · the model writes a step for this file` : (WORDS[b.state] || b.state);
     html += `<span class="t">${t === last ? "" : t}</span><span class="m">${esc(msg)}</span>`;
     last = t;
   }

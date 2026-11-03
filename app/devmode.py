@@ -45,8 +45,12 @@ def extract(path):
 
 
 def fake_llm(system: str, user: str) -> str:
-    if system.startswith("You write"):
+    if system.startswith("You write one Python"):
         return STEP
+    if system.startswith("You write a two-sentence"):
+        h = json.loads(user).get("holds") or []
+        return ("Held: " + "; ".join(h) + ". Call the vendor on the number you have before paying.") if h else \
+            "Read cleanly and matched the vendor's record. Nothing was tried while it was open."
     t = user
     g = lambda p: (re.search(p, t, re.I | re.S) or [None, None])[1]
     tot = re.findall(r"(?<!Sub)(?<!sub)TOTAL(?: DUE)?\s*\$?([\d,]+\.\d\d)", t, re.I)
