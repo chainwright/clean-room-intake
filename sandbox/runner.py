@@ -105,13 +105,26 @@ def render_preview(path):
         emit(ev="note", note=f"couldn't read the renderer's log: {type(e).__name__}")
 
 
+KEEP = ("PATH", "HOME", "LANG", "LC_ALL", "CLEANROOM_CHROME")
+
+
+def clean_start():
+    """Re-exec once with only what a program needs, so even the environment the process was STARTED with
+    (/proc/self/environ, /proc/1/environ) holds nothing else (the base image sets e.g. Python's public GPG_KEY)."""
+    if os.environ.get("CLEANROOM_CLEAN") == "1":
+        return
+    env = {k: v for k, v in os.environ.items() if k in KEEP}
+    env["CLEANROOM_CLEAN"] = "1"
+    os.execve(sys.executable, [sys.executable, "-I", os.path.abspath(__file__), *sys.argv[1:]], env)
+
+
 def main():
     if os.path.exists(IN + "/render_html"):     # the orchestrator asks for a preview render (HTML invoices)
         render_preview(IN + "/file")            # before the audit hook: the renderer's own subprocess isn't the step
     # the step sees only what a program needs to run; the base image's own variables (e.g. Python's public GPG_KEY
     # fingerprint) are dropped too, so "secrets inside: 0" holds for the step, not just for our flags
     for k in list(os.environ):
-        if k not in ("PATH", "HOME", "LANG", "LC_ALL", "CLEANROOM_CHROME"):
+        if k not in KEEP:
             del os.environ[k]
     # measured, not assumed: what the step can see, and how many of those names look like secrets
     emit(ev="env", names=sorted(os.environ), secretlike=sum(1 for k in os.environ if SECRETY.search(k)))
@@ -130,4 +143,5 @@ def main():
 
 
 if __name__ == "__main__":
+    clean_start()
     main()

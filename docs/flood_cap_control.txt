@@ -1,0 +1,3 @@
+# flood_cap_control.sh · 2026-11-03T19:46:22Z · x86_64 · runsc version release-20261102.0
+pids-limit=128  exit=2  forks_recorded=50  last_word_from_inside="starting\u2026"
+pids-limit=1000  exit=137  forks_recorded=71  last_word_from_inside="starting\u2026"

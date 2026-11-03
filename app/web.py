@@ -83,13 +83,14 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def control(name: str, attempts: list) -> list:
+def control(name: str, attempts: list, data: bytes = b"") -> list:
     """For OUR OWN test files only: check the hosts the page tried, from the server outside the room, as proof that the
     failure inside came from the room's walls and not from a dead address. Never for a stranger's file (that would let
     a file make the server call out for it): an allowlist of our two demo hosts, bare scheme://host/, no redirects,
     at most two requests, nothing from the file sent."""
-    if "TESTFILE" not in name or not os.path.isfile(os.path.join(INBOX, os.path.basename(name))):
-        return []
+    path = os.path.join(INBOX, os.path.basename(name))
+    if "TESTFILE" not in name or not os.path.isfile(path) or open(path, "rb").read() != data:
+        return []                                 # the bytes must BE our sample, not just carry its name
     opener = urllib.request.build_opener(_NoRedirect)
     seen, out = set(), []
     for a in attempts:
@@ -124,7 +125,7 @@ def _work(job_id: str, name: str, data: bytes, sender: str):
             it = agent.run(name, data, on_state=on_state)
         f = flags.check(it.fields, sender=sender or None, text=it.text, notes=it.flags)
         ver = flags.verify(it.fields, it.text)
-        ctl = [] if devmode.ON else control(name, [a for t in it.tries for a in t["receipt"]["attempts"]])
+        ctl = [] if devmode.ON else control(name, [a for t in it.tries for a in t["receipt"]["attempts"]], data)
         with LOCK:
             job.update(kind=it.kind, fields=it.fields, text=it.text, notes=it.flags, control=ctl, verify=ver,
                        flags=f, hold=flags.hold_text(f, (it.fields or {}).get("vendor", "")),
@@ -215,8 +216,8 @@ def settle(rooms: list) -> list:
         if p["attack"] == "flood with processes" and p["held"] is None:
             forks = sum(1 for a in r["attempts"] if a.get("what") == "os.fork")
             code = r.get("exit_code")
-            # measured on the VM and a laptop: at the 128-task cap gVisor ends the whole room with exit 2 after ~51
-            # forks; with the cap raised to 1000 all 500 start. So exit 2 short of 500 = the process cap.
+            # measured on the VM (docs/flood_cap_control.txt): at the 128 cap gVisor ends the whole room with exit 2
+            # after ~50 forks; with the cap raised to 1000 the 512 MB memory cap kills it after ~71 (exit 137).
             why = f"stopped by the room's process cap at {forks} processes (gVisor ended the room, exit 2)" if code == 2 \
                 else f"room killed at its memory cap after {forks} processes (exit 137)" if code == 137 \
                 else f"room ended after {forks} processes (exit {code})"

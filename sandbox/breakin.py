@@ -23,12 +23,21 @@ def probe(attack, how, outcome, held):
 
 
 def secrets():
+    """Looks where a key could still be even after the runner cleaned the environment: the variables, and the
+    environment the room's processes were STARTED with (/proc/self/environ, /proc/1/environ)."""
     names = [k for k in list(os.environ.keys()) if any(w in k.upper() for w in ("KEY", "TOKEN", "SECRET", "PASS", "VULTR"))]
     key = os.environ.get("VULTR_INFERENCE_KEY")
+    for p in ("/proc/self/environ", "/proc/1/environ"):
+        try:
+            raw = open(p, "rb").read().decode(errors="replace")
+        except OSError:
+            continue
+        names += [kv.split("=", 1)[0] + f" ({p})" for kv in raw.split("\0")
+                  if "=" in kv and any(w in kv.split("=", 1)[0].upper() for w in ("KEY", "TOKEN", "SECRET", "PASS", "VULTR"))]
     if names or key:
-        probe("read the API key", "search the environment for keys and tokens", f"found {', '.join(names) or 'a key'}", False)
+        probe("read the API key", "search the environment and /proc/*/environ for keys and tokens", f"found {', '.join(names) or 'a key'}", False)
     else:
-        probe("read the API key", "search the environment for keys and tokens",
+        probe("read the API key", "search the environment and /proc/*/environ for keys and tokens",
               f"nothing there · the room only has {', '.join(sorted(os.environ.keys()))}", True)
 
 

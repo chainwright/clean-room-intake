@@ -172,9 +172,10 @@ class Control(unittest.TestCase):
         self.assertEqual(self.calls, [])
 
     def test_only_allowlisted_hosts_even_for_our_test_file(self):
+        real = open(os.path.join(web.INBOX, "wasatch_valve_WVS-3310_TESTFILE.html"), "rb").read()
         out = web.control("wasatch_valve_WVS-3310_TESTFILE.html",
                           [self.att("http://169.254.169.254/latest"), self.att("https://evil.example/p"),
-                           self.att("https://example.com/pixel.png?i=1"), self.att("https://1.1.1.1/t?d=x")])
+                           self.att("https://example.com/pixel.png?i=1"), self.att("https://1.1.1.1/t?d=x")], real)
         self.assertEqual([c["host"] for c in out], ["https://example.com", "https://1.1.1.1"])
         self.assertEqual(self.calls, ["https://example.com/", "https://1.1.1.1/"])   # bare host, nothing from the file
 
@@ -290,3 +291,10 @@ class AccountInText(unittest.TestCase):
         txt = "Granite Peak Refrigerants INVOICE GPR-5561 TOTAL $1,236.00 routing 000067890 account ending 2208"
         self.assertEqual(web.flags.check({"vendor": "Granite Peak Refrigerants", "invoice_no": "GPR-5561", "total": 1236.0,
                                           "bank": {"routing": "000067890", "account_last4": "2208"}}, text=txt), [])
+
+
+
+class ControlByBytes(Control):
+    def test_a_strangers_file_with_our_name_gets_no_check(self):
+        self.assertEqual(web.control("wasatch_valve_WVS-3310_TESTFILE.html", [self.att("https://example.com/x")], b"<html>not ours</html>"), [])
+        self.assertEqual(self.calls, [])
