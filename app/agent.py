@@ -83,6 +83,17 @@ def _chat(system: str, user: str, llm: Optional[Callable] = None) -> str:
     return r.choices[0].message.content or ""
 
 
+def _looks_raw(text: str) -> bool:
+    """A step that hands back the file's own bytes (PDF syntax, a zip header, mostly control characters) hasn't read
+    the document; that counts as a failed step, and the reason goes back to the model."""
+    t = text.lstrip()
+    if t.startswith(("%PDF", "PK\x03\x04", "\x89PNG", "\xff\xd8")) or re.search(r"\b\d+ 0 obj\b|\bendobj\b|\bxref\b", t[:2000]):
+        return True
+    sample = t[:4000]
+    bad = sum(1 for ch in sample if not (ch.isprintable() or ch in "\n\r\t"))
+    return bool(sample) and bad / len(sample) > 0.15
+
+
 def _code(reply: str) -> str:
     m = re.search(r"```(?:python)?\n(.*?)```", reply, re.S)
     return (m.group(1) if m else reply).strip() + "\n"
@@ -105,10 +116,13 @@ def run(filename: str, data: bytes, llm: Optional[Callable] = None, cmd_for=sand
         state("opening")
         rec = sandbox.run(data, step, caps, cmd_for=cmd_for, render_html=(it.kind == "html" and attempt == 0))
         it.tries.append({"step": step, "receipt": rec.as_dict()})
-        if rec.result and rec.result.get("text", "").strip():
-            it.text = rec.result["text"]
+        txt = (rec.result or {}).get("text", "") or ""
+        raw = _looks_raw(txt)
+        if txt.strip() and not raw:
+            it.text = txt
             break
-        why = rec.error or (f"killed by {rec.killed_by}" if rec.killed_by else "no text returned")
+        why = rec.error or (f"killed by {rec.killed_by}" if rec.killed_by else
+                            "it returned the file's raw bytes, not the document's text" if raw else "no text returned")
         ask = (f"File kind: {it.kind}. Your previous extract() failed inside the sandbox: {why}. "
                f"Write a corrected extract(path).")
     else:

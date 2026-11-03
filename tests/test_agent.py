@@ -33,7 +33,7 @@ class Loop(unittest.TestCase):
         llm = FakeModel(["def extract(path):\n    raise ValueError('no text layer')\n", READ_TEXT],
                         {"vendor": "Bonneville Sheet Metal Supply", "total": 736.81})
         states = []
-        it = agent.run("x.pdf", b"%PDF fake Total $736.81", llm=llm, cmd_for=local,
+        it = agent.run("x.pdf", b"Bonneville Sheet Metal Supply Total $736.81", llm=llm, cmd_for=local,
                        caps=sandbox.Caps(seconds=10), on_state=states.append)
         self.assertEqual(it.fields["total"], 736.81)
         self.assertEqual(len(it.tries), 2)
@@ -80,3 +80,11 @@ class DevStep(unittest.TestCase):
                 with open(os.path.join(ROOT, "demo", "inbox", name), "rb") as f:
                     r = sandbox.run(f.read(), devmode.STEP, sandbox.Caps(seconds=20), cmd_for=local)
                 self.assertTrue(r.result and r.result["text"].strip(), (name, r.error))
+
+
+class RawBytes(unittest.TestCase):
+    def test_raw_pdf_bytes_are_not_text(self):
+        from app import agent
+        self.assertTrue(agent._looks_raw("%PDF-1.7\n1 0 obj\n<</Type /Catalog>>\nendobj"))
+        self.assertTrue(agent._looks_raw("\x00\x01\x02\x03abc\x04\x05\x06\x07"))
+        self.assertFalse(agent._looks_raw("Bonneville Sheet Metal Supply\nINVOICE BSM-24117\nTotal $736.81"))
