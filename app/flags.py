@@ -33,6 +33,15 @@ ROUTING = re.compile(r"(?<!\d)(\d{9})(?!\d)")
 # account numbers as invoices print them: "****9013", "account ending 9013", "Acct #: 000123459013", "account 9013"
 ACCOUNT = re.compile(r"(?i)(?:\*{2,}\s*|x{2,}\s*|ending(?:\s+in)?\s+|\ba/?c\b\.?\s*(?:no\.?|number|#)?\s*:?\s*|"
                      r"acc(?:oun)?t\.?\s*(?:no\.?|number|#)?\s*:?\s*|iban\s*:?\s*[a-z]{2}\d{2}\w*?)(\d{4,17})\b")
+# any long number written right after a pay word, whatever the label ("beneficiary no.", "Konto", "deposit to")
+PAYNUM = re.compile(r"(?i)\b(?:beneficiary|deposit|remit|wire|konto|transit|payee|credit\s+to|pay(?:ment)?\s+to|account|acct|"
+                    r"a/c|iban|routing|aba|swift|bank)\b[^\n\d]{0,40}?(\d{6,17})(?!\d)")
+# an account number spelled out in words ("nine nine one three") can't be matched to the record: hold
+SPELLED = re.compile(r"(?i)\b(?:zero|one|two|three|four|five|six|seven|eight|nine)(?:[\s,-]+(?:zero|one|two|three|four|five|six|seven|"
+                     r"eight|nine)){3,}\b")
+# where an invoice says where to send a check
+REMIT_AT = re.compile(r"(?i)\b(?:remit(?:tance)?(?:\s+to)?|mail\s+checks?(?:\s+to)?|send\s+(?:payment|checks?)(?:\s+to)?|payable\s+to|"
+                      r"pay\s+by\s+check\s+to|pay\s+to)\b:?([^\n]{0,80})")
 BANKISH = re.compile(r"(?i)\b(routing|aba|account\s*(no|number|#)?|acct|iban|swift|bic|wire|ach|bank)\b")
 
 
@@ -110,17 +119,28 @@ def check(fields: dict, sender: Optional[str] = None, text: str = "", notes: Opt
                         "text": "First invoice from this vendor (no payment history): confirm who they are and where "
                                 "to pay them by phone before the first payment."})
         return out
-    if h.get("remit_to") and (fields.get("remit_to") or fields.get("pay_method") == "check"):
+    if h.get("remit_to") and (fields.get("remit_to") or fields.get("pay_method") == "check" or REMIT_AT.search(text or "")):
         now = fields.get("remit_to") or ""
-        if _addr(now) != _addr(h["remit_to"]):
+        # the file's own text too: a pay-to address written there that isn't the one on file
+        said = [m.strip(" :.") for m in REMIT_AT.findall(text or "") if re.search(r"\d", m)]
+        other = next((m for m in said if _addr(h["remit_to"]) not in _addr(m)), None)
+        if other:
+            now = other
+        if _addr(now) != _addr(h["remit_to"]) and not (other is None and _addr(h["remit_to"]) in _addr(now)):
             out.append({"code": "remit_changed", "blocks": True, "was": h["remit_to"], "now": now or "?",
                         "text": f"The pay-to address changed: on file {h['remit_to']}, this invoice asks for "
                                 f"{now or 'an address that could not be read'}."})
     r, a = re.sub(r"\D", "", bank.get("routing") or ""), re.sub(r"\D", "", bank.get("account_last4") or "")
     in_text = set(ROUTING.findall(_digits(text)))
     accts = {m[-4:] for m in ACCOUNT.findall(_digits(text)) if m[-4:] != h["routing"][-4:] or len(m) != 9}
+    # a long number after any pay word that is neither the routing nor the account on file
+    stray = {n for n in PAYNUM.findall(_digits(text)) if n != h["routing"] and n[-4:] != h["account_last4"]}
     changed = (r and r != h["routing"]) or (a and a != h["account_last4"]) or bool(in_text - {h["routing"]}) \
-        or bool(accts - {h["account_last4"]})          # an account in the file's own text that isn't the one on file
+        or bool(accts - {h["account_last4"]}) or bool(stray)  # a number in the file's own text that isn't the one on file
+    if not changed and text and SPELLED.search(text) and BANKISH.search(text):
+        out.append({"code": "bank_unread", "blocks": True,
+                    "text": "The invoice writes a number out in words next to payment details. Check the account against "
+                            "the vendor's record before paying."})
     if not changed and r and not a:
         out.append({"code": "bank_unread", "blocks": True,
                     "text": "The model reported a routing number but no account. Check the account against the vendor's "

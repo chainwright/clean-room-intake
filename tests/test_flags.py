@@ -53,3 +53,33 @@ class Flags(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Round13Bypasses(unittest.TestCase):
+    """Round-13 judge: a known vendor's invoice that keeps the old details where the model looks, and puts the new
+    ones under a label we didn't know, or writes the pay-to address only in the text."""
+    G = {"vendor": "Granite Peak Refrigerants", "invoice_no": "GPR-5561", "total": 1236.0,
+         "bank": {"routing": "000067890", "account_last4": "2208"}}
+    BASE = "Granite Peak Refrigerants INVOICE GPR-5561 TOTAL $1,236.00 routing 000067890 "
+
+    def codes(self, f):
+        return [x["code"] for x in f]
+
+    def test_new_account_under_an_unknown_label_holds(self):
+        for tail in ("ref 2208. New beneficiary no. 0099887766", "account ending 2208. Updated deposit details: Konto 445566778899"):
+            self.assertIn("bank_changed", self.codes(flags.check(self.G, text=self.BASE + tail)), tail)
+
+    def test_account_spelled_in_words_holds(self):
+        f = flags.check(self.G, text=self.BASE + "account ending 2208 (old). Please remit to acct number nine nine one three")
+        self.assertIn("bank_unread", self.codes(f))
+
+    def test_same_details_still_pay(self):
+        self.assertEqual(flags.check(self.G, text=self.BASE + "account ****2208"), [])
+
+    def test_check_address_only_in_the_text_holds(self):
+        bc = {"vendor": "Bonneville Sheet Metal Supply", "invoice_no": "BSM-24117", "total": 736.81, "pay_method": "check",
+              "remit_to": "2140 S 300 W, Salt Lake City, UT"}         # the model reports the address on file
+        f = flags.check(bc, text="Bonneville Sheet Metal Supply BSM-24117 $736.81 Mail checks to PO Box 9911, Henderson NV")
+        self.assertEqual(self.codes(f), ["remit_changed"])
+        ok = flags.check(bc, text="Bonneville Sheet Metal Supply BSM-24117 $736.81 Remit to: 2140 S 300 W, Salt Lake City, UT 84115")
+        self.assertEqual(ok, [])

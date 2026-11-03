@@ -79,3 +79,5 @@ header .count{grid-column:2;font:15px 'IBM Plex Mono',monospace;color:var(--ink)
 .raw pre{white-space:pre-wrap;word-break:break-all;max-height:260px;overflow:auto;background:#f3f0e8;border:1px solid #e1dbcd;padding:8px;margin:6px 0 0;font:11.5px/1.45 'IBM Plex Mono',monospace;color:#2b2e33}
 .stub .ok{color:#2f7a3b}.stub .ctl{color:var(--muted)}
 .ver{font-size:14px;color:var(--muted);margin:10px 0 2px}.ver .ok{color:#2f7a3b;font-weight:600}.ver .no{color:var(--red);font-weight:700}
+.stub input.note{width:100%;margin-top:10px;font:13px 'IBM Plex Mono',monospace;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:#fff}
+.stub .err{color:var(--red);font:12px 'IBM Plex Mono',monospace}

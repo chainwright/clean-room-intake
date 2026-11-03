@@ -27,10 +27,12 @@ Clean Room Intake removes the choice:
 5. **Send to pay list** is held until the controller approves whenever the bank details changed, the email came from
    a look-alike domain, the pay-to address changed, the file tried to reach anything while open, the file carries hidden
    instructions, or the vendor has never been paid before (any pay method, checks included). Approval covers exactly the
-   holds the controller saw: a new hold needs a new approval. The hold fails closed
+   holds the controller saw (a new hold needs a new approval), and a hold about who gets the money can't be approved
+   without a written call note (who called, on which number from your own records), which stays on the receipt. The hold fails closed
    and doesn't trust the model: every field the model reported is checked against the text that came out of the room
    (shown as ✓ / ✕ on the slip), and the bank check also runs on that text directly, so a document that talks the model
-   into reporting the old account still holds.
+   into reporting the old account still holds: any long number after a pay word (beneficiary, deposit, Konto, wire…)
+   that isn't on file, an account written out in words, or a pay-to address in the text that isn't the one on file.
 
 ## Vultr services
 | Service | What it does here |

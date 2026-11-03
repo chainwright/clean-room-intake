@@ -333,14 +333,27 @@ def list_intakes(req: Request):
                 for j in sorted(JOBS.values(), key=lambda j: -j["created"]) if j.get("owner") == req.state.vid]
 
 
+CALLABLE = {"bank_changed", "sender_domain", "new_vendor", "remit_changed"}
+
+
 @app.post("/api/intake/{jid}/approve")
-def approve(jid: str, req: Request):
+async def approve(jid: str, req: Request):
+    try:
+        note = str((await req.json()).get("note") or "").strip()[:200]
+    except Exception:
+        note = ""
     with LOCK:
         j = _mine(req, jid)
         if not j.get("done") or j.get("state") == "failed" or j.get("kind") == "breakin":
             raise HTTPException(409, "Nothing to approve yet: the file hasn't been read.")
+        holds = sorted(f["code"] for f in j["flags"] if f.get("blocks"))
+        # a hold about who gets the money is approved only with a note of the call-back: who called, which number
+        if CALLABLE & set(holds) and len(note) < 8:
+            raise HTTPException(422, "Write down the call first: who called the vendor, on which number from your records.")
         # the approval covers exactly the holds the controller saw; a different set of holds needs a new approval
-        j["approved"] = sorted(f["code"] for f in j["flags"] if f.get("blocks"))
+        j["approved"] = holds
+        j["approval_note"] = note
+        j["approved_at"] = time.time()
         return {"ok": True, "approved": j["approved"]}
 
 

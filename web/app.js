@@ -223,7 +223,7 @@ function stub(j) {
   const flagged = (j.flags || []).some((x) => x.blocks), hidden = (j.notes || []).some((n) => /instruction/i.test(n));
   const callable = (j.flags || []).some((x) => ["bank_changed", "sender_domain", "new_vendor", "remit_changed"].includes(x.code));
   const st = failedOf(j) ? `<div class="st held">COULDN'T READ · ASK FOR A NEW COPY</div>`
-    : held ? `<div class="st held">HOLD · needs you</div>` : flagged ? `<div class="st held">${callable ? "APPROVED AFTER CALL" : "APPROVED AFTER REVIEW"}</div>`
+    : held ? `<div class="st held">HOLD · needs you</div>` : flagged ? `<div class="st held">${callable ? "APPROVED · CALL NOTED" : "APPROVED AFTER REVIEW"}</div>`
     : tried.length ? `<div class="st stopped">${tried.length} STOPPED</div>` : hidden ? `<div class="st held">HIDDEN INSTRUCTIONS FOUND</div>`
     : `<div class="st clean">clean</div>`;
   const short = (d) => d.replace(/^the page tried to send its title to (\S+)/, "page title → $1").replace(/^the page tried to load an image from (\S+)/, "image ← $1")
@@ -231,9 +231,10 @@ function stub(j) {
   return `<div class="stub">${st}No. ${esc(r.room.toUpperCase())}<br>${esc(j.file)}<hr>` +
     `NET ${esc(r.network)} · FS read-only<br>MEM ${r.caps.memory_mb}&nbsp;MB · CPU&nbsp;${r.caps.cpus} · ${r.caps.seconds}&nbsp;s<br>secrets inside: ${r.secrets_inside ?? "not measured"}${r.env_names?.length ? ` (sees ${esc(r.env_names.join(", "))})` : ""} · runtime ${esc(r.runtime)}<hr>` +
     (tried.length ? tried.map((d) => `<span class="x">✕ ${esc(short(d))}</span>`).join("<br>") : "Attempts stopped: none") +
+    (hidden ? `<br><span class="x">✕ hidden instructions in the text · read as data, not obeyed</span>` : "") +
     ((j.control || []).length ? `<hr><span class="ctl">control · the same hosts from the server, outside the room:</span><br>` +
       j.control.map((c) => `<span class="ok">✓ ${esc(c.host.replace(/^https?:\/\//, ""))} answers (${esc(c.result)}) in ${c.ms} ms</span>`).join("<br>") : "") +
-    `<hr>room lived ${lived(j)} s · destroyed ✓${j.tries.length > 1 ? ` · ${j.tries.length} tries` : ""}${rawRecord(j)}</div>`;
+    `<hr>${j.tries.length > 1 ? "last room" : "room"} lived ${lived(j)} s · destroyed ✓${j.tries.length > 1 ? ` · ${j.tries.length} tries, a fresh room each` : ""}${rawRecord(j)}</div>`;
 }
 
 // ---------- the slip (left) ----------
@@ -359,10 +360,20 @@ async function showReceipts() {
     if (!(j.flags || []).length) return s;
     const h = holdShort(j).replace(/^<div class="hold"><b>HOLD<\/b> · /, "").replace(/<\/div>$/, "") +
       `<details><summary>details</summary>${holdHtml(j).replace(/^<div class="hold"><b>HOLD<\/b> · /, "").replace(/<\/div>$/, "")}</details>`;
-    return s.slice(0, -6) + `<hr><b class="${j.approved ? "" : "held"}">${j.approved ? "Approved" : "HOLD"}</b> · ${h}` +
-      (j.approved ? "" : `<br><button class="btn" data-ap="${j.id}">Approve</button>`) + "</div>";
+    const callable = (j.flags || []).some((x) => x.blocks && ["bank_changed", "sender_domain", "new_vendor", "remit_changed"].includes(x.code));
+    const noted = j.approval_note ? `<br><span class="ctl">call note: ${esc(j.approval_note)}</span>` : "";
+    return s.slice(0, -6) + `<hr><b class="${j.approved ? "" : "held"}">${j.approved ? "Approved" : "HOLD"}</b> · ${h}` + noted +
+      (j.approved ? "" : (callable ? `<br><input class="note" data-note="${j.id}" maxlength="200" placeholder="call note: who called, which number on file">` : "") +
+        `<br><button class="btn" data-ap="${j.id}">Approve</button><span class="err" data-err="${j.id}"></span>`) + "</div>";
   }).join("") || `<div class="empty">No files opened yet.</div>`;
-  $("stubs").onclick = async (e) => { const id = e.target.dataset.ap; if (id) { await api(`/api/intake/${id}/approve`, { method: "POST" }); showReceipts(); } };
+  $("stubs").onclick = async (e) => {
+    const id = e.target.dataset.ap; if (!id) return;
+    const note = document.querySelector(`input[data-note="${id}"]`)?.value || "";
+    try {
+      await api(`/api/intake/${id}/approve`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note }) });
+      showReceipts();
+    } catch (err) { const el = document.querySelector(`[data-err="${id}"]`); if (el) el.textContent = " " + err.message; }
+  };
 }
 
 function route() {

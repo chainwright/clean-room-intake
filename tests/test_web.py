@@ -57,7 +57,7 @@ class Web(unittest.TestCase):
         self.assertIn("example.net", j["sender"])
         self.assertEqual([f["code"] for f in j["flags"]], ["bank_changed", "sender_domain"])
         self.assertEqual(self.c.post(f"/api/intake/{jid}/pay").status_code, 409)
-        self.c.post(f"/api/intake/{jid}/approve")
+        self.c.post(f"/api/intake/{jid}/approve", json={"note": "called Granite Peak on 801-555-0100 from our records"})
         self.assertEqual(self.c.post(f"/api/intake/{jid}/pay").status_code, 200)
         self.assertEqual(j["states"][-1]["state"], "destroyed")
 
@@ -236,7 +236,9 @@ class PayGate(unittest.TestCase):
         self.assertEqual(self.c.post("/api/intake/j1/approve").status_code, 409)     # nothing read yet: no blank cheque
         self.job(flags=[hold])
         self.assertEqual(self.c.post("/api/intake/j1/pay").status_code, 409)
-        self.assertEqual(self.c.post("/api/intake/j1/approve").status_code, 200)
+        self.assertEqual(self.c.post("/api/intake/j1/approve", json={}).status_code, 422)   # a bank hold needs the call noted
+        self.assertEqual(self.c.post("/api/intake/j1/approve", json={"note": "Marisol called 801-555-0142 (on file), confirmed"}).status_code, 200)
+        self.assertEqual(web.JOBS["j1"]["approval_note"][:7], "Marisol")
         self.assertEqual(self.c.post("/api/intake/j1/pay").status_code, 200)
         web.JOBS["j1"].update(paid=False, flags=[hold, {"code": "sender_domain", "blocks": True, "text": "y"}])
         self.assertEqual(self.c.post("/api/intake/j1/pay").status_code, 409)         # a hold the controller never saw
