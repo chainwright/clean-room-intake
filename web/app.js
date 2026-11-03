@@ -212,6 +212,8 @@ function stub(j) {
   return `<div class="stub">${st}No. ${esc(r.room.toUpperCase())}<br>${esc(j.file)}<hr>` +
     `NET ${esc(r.network)} · FS read-only<br>MEM ${r.caps.memory_mb}&nbsp;MB · CPU&nbsp;${r.caps.cpus} · ${r.caps.seconds}&nbsp;s<br>secrets inside: ${r.secrets_inside} · runtime ${esc(r.runtime)}<hr>` +
     (tried.length ? tried.map((d) => `<span class="x">✕ ${esc(short(d))}</span>`).join("<br>") : "Attempts stopped: none") +
+    ((j.control || []).length ? `<hr><span class="ctl">control · the same hosts from the server, outside the room:</span><br>` +
+      j.control.map((c) => `<span class="ok">✓ ${esc(c.host.replace(/^https?:\/\//, ""))} → ${esc(c.result)} in ${c.ms} ms</span>`).join("<br>") : "") +
     `<hr>room lived ${lived(j)} s · destroyed ✓${j.tries.length > 1 ? ` · ${j.tries.length} tries` : ""}${rawRecord(j)}</div>`;
 }
 
@@ -275,7 +277,7 @@ function renderSlip(j, reached, filled) {
   const stamp = !filled ? "" : tried.length ? `<div class="stamp">${tried.length} ATTEMPT${tried.length === 1 ? "" : "S"}<br>STOPPED AT THE GLASS</div>`
     : held ? `<div class="stamp hold">HOLD · CALL VENDOR</div>` : "";
   const top = !filled ? "" : held ? holdShort(j) :
-    tried.length ? `<div class="tried">The file tried ${tried.length} thing${tried.length === 1 ? "" : "s"} while it was open. ${tried.length === 1 ? "It" : tried.length === 2 ? "Both" : "All"} stopped at the glass. Your fields are below.</div>` : "";
+    tried.length ? `<div class="tried">The file tried ${tried.length} thing${tried.length === 1 ? "" : "s"} while it was open. ${tried.length === 1 ? "It" : tried.length === 2 ? "Both" : "All"} stopped at the glass${(j.control || []).some((c) => /HTTP/.test(c.result)) ? " (outside the room, the same addresses answer)" : ""}. Your fields are below.</div>` : "";
   const bankFlag = (j.flags || []).find((x) => x.code === "bank_changed");
   const bank = f.bank && (f.bank.routing || f.bank.account_last4)
     ? (bankFlag ? `<span class="was">${esc(bankFlag.was)}</span>` : "") + `${esc((f.bank.name || "").replace(" (EXAMPLE)", ""))} · routing ${esc(f.bank.routing || "?")} · ****${esc(f.bank.account_last4 || "?")}` : "";
@@ -307,7 +309,8 @@ async function refreshQueue(flash) {
   const items = await api("/api/intakes"), seen = new Set(), latest = [];
   for (const i of items) if (!seen.has(i.file)) { seen.add(i.file); latest.push(i); }
   $("queue").innerHTML = latest.slice(0, 6).map((i) => {
-    const word = !i.done ? "in the room…" : i.kind === "breakin" ? `${i.held} of ${i.probes} stopped`
+    const playing = i.id === current && view && !view.filled;     // the page is still playing this one out: no verdict yet
+    const word = !i.done || playing ? "in the room…" : i.kind === "breakin" ? `${i.held} of ${i.probes} stopped`
       : i.flagged && !i.approved ? "HOLD" : i.stopped ? `${i.stopped} stopped` : i.paid ? "on the pay list" : "ready";
     const cls = word === "HOLD" ? "held" : /stopped/.test(word) ? "stopped" : "";
     if (i.kind === "breakin") return `<div class="chip ${i.id === current ? "on" : ""}" data-id="${i.id}"><span class="vn">Break-in test</span>&nbsp;·&nbsp;<span class="w ${cls}">${word}</span></div>`;

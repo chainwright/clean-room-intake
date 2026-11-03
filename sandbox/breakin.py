@@ -41,7 +41,7 @@ def host_files():
         except OSError as e:
             got.append((p, type(e).__name__))
     leaked = [p for p, r in got if isinstance(r, int) and r > 0]
-    probe("read the server's files", "open /etc/shadow, root's ssh key, the app's key file",
+    probe("read password and key files", "open /etc/shadow, root's ssh key, the app's key file",
           f"read {', '.join(leaked)}" if leaked else "; ".join(f"{p}: {r}" for p, r in got), not leaked)
 
 
@@ -89,7 +89,7 @@ def root():
 def flood():
     """Second room: a fork flood. Each child sleeps and exits; the room's caps decide how far it gets. The count is
     read from outside too (the audit hook records every fork), because the flood is expected to end the room."""
-    probe("flood the server", "start 500 processes", "starting…", None)
+    probe("flood with processes", "start 500 processes", "starting…", None)
     kids, err = [], ""
     for _ in range(500):
         try:
@@ -101,7 +101,7 @@ def flood():
             time.sleep(3)
             os._exit(0)
         kids.append(pid)
-    probe("flood the server", "start 500 processes",
+    probe("flood with processes", "start 500 processes",
           f"stopped at {len(kids)} · {err}" if err else "started all 500", bool(err))
     for k in kids:
         try:

@@ -77,7 +77,16 @@ VULTR_INFERENCE_KEY=... CLEANROOM_MODEL=... .venv/bin/uvicorn app.web:app
 - The companies, people, invoices and bank numbers are fictional (RFC 2606 `.example` domains, `555-01xx` phones,
   bank numbers starting `0000`).
 - **`jordan_river_JRP-7781_TESTFILE.docx` is our own harmless test file.** It carries hidden instruction-like text
-  and an external image link to `collect.attacker.example`, a reserved name that resolves nowhere.
+  (white on white) aimed at the model; the receipt quotes it word for word.
+- **`wasatch_valve_WVS-3310_TESTFILE.html` is our own harmless test file.** Rendered in the room the way a mail client
+  would, it tries to load an image from `example.com` and to send its title to `1.1.1.1` (both real, both answer from
+  anywhere with a network). Inside the room Chromium's own net log records `ERR_NAME_NOT_RESOLVED` and
+  `ERR_ADDRESS_UNREACHABLE`; as a control, the server then checks the same hosts from outside the room (bare host, nothing
+  from the file sent) and the receipt shows they answer.
+- **The break-in test (`sandbox/breakin.py`) is our own attack script**, run in two fresh rooms with exactly the walls a
+  file gets: read keys from the environment, open password/key files, write to `/`, look up a name, connect to an IP,
+  `setuid(0)`, grab 1 GB, fork 500 processes. The two attacks that end a room are judged from outside (exit code, and
+  the forks the room's own audit hook recorded).
 - The vendor history (last invoice and bank details per vendor) is seeded; in a real shop it comes from the AP system.
 - Everything else is live: the sandbox, its caps, its destruction, and every model call.
 

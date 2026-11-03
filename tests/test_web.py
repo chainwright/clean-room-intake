@@ -138,7 +138,7 @@ class BreakIn(unittest.TestCase):
         self.assertFalse(open_["held"])
 
     def test_flood_is_counted_from_the_rooms_own_record(self):
-        fl = {"attack": "flood the server", "how": "", "outcome": "starting…", "held": None, "t": 0.1}
+        fl = {"attack": "flood with processes", "how": "", "outcome": "starting…", "held": None, "t": 0.1}
         p = web.settle([self.room("b", 2, "", [fl], forks=51)])[0]
         self.assertTrue(p["held"]); self.assertIn("51 processes", p["outcome"])
         p = web.settle([self.room("b", 0, "", [dict(fl)], forks=500)])[0]

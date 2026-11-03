@@ -10,6 +10,7 @@ GET  /api/samples           the demo inbox (fictional files, incl. our harmless 
 from __future__ import annotations
 
 import email
+import urllib.error
 import os
 import re
 import threading
@@ -57,6 +58,28 @@ def _unwrap_email(name: str, data: bytes):
     return name, data, sender
 
 
+def control(attempts: list) -> list:
+    """The same hosts, checked from the server OUTSIDE the room (bare scheme://host/, nothing from the file sent):
+    proof that a failure inside the room came from the room's walls, not from an address that doesn't exist."""
+    import urllib.request
+    seen, out = set(), []
+    for a in attempts:
+        m = re.match(r"(https?://[^/\s'\"]+)", a.get("detail", ""))
+        if a.get("what") != "browser" or not m or m.group(1) in seen:
+            continue
+        seen.add(m.group(1))
+        t = time.time()
+        try:
+            with urllib.request.urlopen(urllib.request.Request(m.group(1) + "/", method="GET"), timeout=4) as r:
+                res = f"HTTP {r.status}"
+        except urllib.error.HTTPError as e:
+            res = f"HTTP {e.code}"
+        except Exception as e:
+            res = f"no answer ({type(e).__name__})"
+        out.append({"host": m.group(1), "result": res, "ms": round((time.time() - t) * 1000)})
+    return out
+
+
 def _work(job_id: str, name: str, data: bytes, sender: str):
     job = JOBS[job_id]
 
@@ -71,8 +94,9 @@ def _work(job_id: str, name: str, data: bytes, sender: str):
         else:
             it = agent.run(name, data, on_state=on_state)
         f = flags.check(it.fields, sender=sender or None)
+        ctl = [] if devmode.ON else control([a for t in it.tries for a in t["receipt"]["attempts"]])
         with LOCK:
-            job.update(kind=it.kind, fields=it.fields, text=it.text, notes=it.flags,
+            job.update(kind=it.kind, fields=it.fields, text=it.text, notes=it.flags, control=ctl,
                        flags=f, hold=flags.hold_text(f, (it.fields or {}).get("vendor", "")),
                        tries=it.tries, error=it.error, done=True)
     except Exception as e:   # the clean room must never take the app down
@@ -157,9 +181,9 @@ def settle(rooms: list) -> list:
             killed = r.get("killed_by") == "memory" or r.get("exit_code") == 137
             p.update(outcome=f"room killed at {r['caps']['memory_mb']} MB (exit 137)" if killed
                      else "the room was not killed", held=killed)
-        if p["attack"] == "flood the server" and p["held"] is None:
+        if p["attack"] == "flood with processes" and p["held"] is None:
             forks = sum(1 for a in r["attempts"] if a.get("what") == "os.fork")
-            p.update(outcome=f"room stopped after {forks} processes (exit {r.get('exit_code')})" if ended
+            p.update(outcome=f"room ran out of memory after {forks} processes and stopped (exit {r.get('exit_code')})" if ended
                      else f"{forks} processes, room still up", held=ended and forks < 500)
     return out
 
