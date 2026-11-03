@@ -212,7 +212,8 @@ function stub(j) {
   const held = (j.flags || []).some((x) => x.blocks) && !j.approved;
   const flagged = (j.flags || []).some((x) => x.blocks), hidden = (j.notes || []).some((n) => /instruction/i.test(n));
   const callable = (j.flags || []).some((x) => ["bank_changed", "sender_domain", "new_vendor"].includes(x.code));
-  const st = held ? `<div class="st held">HOLD · needs you</div>` : flagged ? `<div class="st held">${callable ? "APPROVED AFTER CALL" : "APPROVED AFTER REVIEW"}</div>`
+  const st = j.state === "failed" ? `<div class="st held">COULDN'T READ · ASK FOR A NEW COPY</div>`
+    : held ? `<div class="st held">HOLD · needs you</div>` : flagged ? `<div class="st held">${callable ? "APPROVED AFTER CALL" : "APPROVED AFTER REVIEW"}</div>`
     : tried.length ? `<div class="st stopped">${tried.length} STOPPED</div>` : hidden ? `<div class="st held">HIDDEN INSTRUCTIONS FOUND</div>`
     : `<div class="st clean">clean</div>`;
   const short = (d) => d.replace(/^the page tried to send its title to (\S+)/, "page title → $1").replace(/^the page tried to load an image from (\S+)/, "image ← $1")
