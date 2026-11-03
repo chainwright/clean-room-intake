@@ -16,7 +16,7 @@ HISTORY: Dict[str, dict] = {
                                   "domain": "granitepeak-refrig.example"},
     "bonneville sheet metal supply": {"last_invoice": "BSM-23980", "date": "09/26/2026", "total": 512.40,
                                       "bank": "Mountain Ledger Bank (EXAMPLE)", "routing": "000012345", "account_last4": "4471",
-                                      "domain": "bonneville-sheetmetal.example"},
+                                      "domain": "bonneville-sheetmetal.example", "remit_to": "2140 S 300 W, Salt Lake City, UT"},
 }
 
 
@@ -34,6 +34,15 @@ ROUTING = re.compile(r"(?<!\d)(\d{9})(?!\d)")
 ACCOUNT = re.compile(r"(?i)(?:\*{2,}\s*|x{2,}\s*|ending(?:\s+in)?\s+|\ba/?c\b\.?\s*(?:no\.?|number|#)?\s*:?\s*|"
                      r"acc(?:oun)?t\.?\s*(?:no\.?|number|#)?\s*:?\s*|iban\s*:?\s*[a-z]{2}\d{2}\w*?)(\d{4,17})\b")
 BANKISH = re.compile(r"(?i)\b(routing|aba|account\s*(no|number|#)?|acct|iban|swift|bic|wire|ach|bank)\b")
+
+
+def _addr(a: Optional[str]) -> str:
+    """An address reduced to what identifies it: letters and digits, common words shortened ("Salt Lake City" = "SLC")."""
+    t = re.sub(r"[^a-z0-9 ]", " ", (a or "").lower())
+    for long, short in (("salt lake city", "slc"), ("south", "s"), ("north", "n"), ("west", "w"), ("east", "e"),
+                        ("street", "st"), ("suite", "ste"), ("utah", "ut")):
+        t = re.sub(rf"\b{long}\b", short, t)
+    return re.sub(r"\s+", "", t)
 
 
 def _digits(text: str) -> str:
@@ -56,13 +65,15 @@ def verify(fields: dict, text: str) -> List[dict]:
     low = t.lower()
     bank = fields.get("bank") or {}
     rows = []
-    for name, value, forms in (("invoice", fields.get("invoice_no"), [str(fields.get("invoice_no") or "").lower()]),
+    vendor = re.sub(r"\s+", " ", str(fields.get("vendor") or "")).strip().lower()
+    for name, value, forms in (("vendor", fields.get("vendor"), [vendor]),
+                               ("invoice", fields.get("invoice_no"), [str(fields.get("invoice_no") or "").lower()]),
                                ("amount", fields.get("total"), _money(fields.get("total"))),
                                ("routing", bank.get("routing"), [str(bank.get("routing") or "")]),
                                ("account", bank.get("account_last4"), [str(bank.get("account_last4") or "")])):
         if value in (None, ""):
             continue
-        hay = low if name == "invoice" else _digits(t) if name in ("routing", "account") else t
+        hay = re.sub(r"\s+", " ", low) if name in ("invoice", "vendor") else _digits(t) if name in ("routing", "account") else t
         found = any(f and f in hay for f in forms)
         rows.append({"field": name, "value": value, "found": found})
     return rows
@@ -92,10 +103,19 @@ def check(fields: dict, sender: Optional[str] = None, text: str = "", notes: Opt
     h = HISTORY.get(_key(fields.get("vendor")))
     bank = fields.get("bank") or {}
     if not h:
-        if (fields.get("pay_method") == "ach") or bank.get("routing") or bank.get("account_last4") or ROUTING.search(text or ""):
+        # fails closed: a vendor we have never paid is held whatever the pay method (a check to a new address is the
+        # same fraud as a new bank account), and so is a known vendor whose name the model spelled differently
+        if fields or text:
             out.append({"code": "new_vendor", "blocks": True,
-                        "text": "First invoice from this vendor with bank details: confirm them by phone before the first payment."})
+                        "text": "First invoice from this vendor (no payment history): confirm who they are and where "
+                                "to pay them by phone before the first payment."})
         return out
+    if h.get("remit_to") and (fields.get("remit_to") or fields.get("pay_method") == "check"):
+        now = fields.get("remit_to") or ""
+        if _addr(now) != _addr(h["remit_to"]):
+            out.append({"code": "remit_changed", "blocks": True, "was": h["remit_to"], "now": now or "?",
+                        "text": f"The pay-to address changed: on file {h['remit_to']}, this invoice asks for "
+                                f"{now or 'an address that could not be read'}."})
     r, a = re.sub(r"\D", "", bank.get("routing") or ""), re.sub(r"\D", "", bank.get("account_last4") or "")
     in_text = set(ROUTING.findall(_digits(text)))
     accts = {m[-4:] for m in ACCOUNT.findall(_digits(text)) if m[-4:] != h["routing"][-4:] or len(m) != 9}

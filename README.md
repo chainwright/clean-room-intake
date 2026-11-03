@@ -23,9 +23,11 @@ Clean Room Intake removes the choice:
 1. Marisol drops a file, or forwards the email.
 2. A fresh sandbox opens it on the other side of the glass; she watches it happen.
 3. She gets the vendor, invoice number, amount, due date and bank details as plain text, each with the page it came from.
-4. The sandbox is destroyed. The receipt stays.
+4. The sandbox is destroyed. The receipt stays (in the app's memory for the demo; a restart clears it).
 5. **Send to pay list** is held until the controller approves whenever the bank details changed, the email came from
-   a look-alike domain, the file carries hidden instructions, or a new vendor sends bank details. The hold fails closed
+   a look-alike domain, the pay-to address changed, the file tried to reach anything while open, the file carries hidden
+   instructions, or the vendor has never been paid before (any pay method, checks included). Approval covers exactly the
+   holds the controller saw: a new hold needs a new approval. The hold fails closed
    and doesn't trust the model: every field the model reported is checked against the text that came out of the room
    (shown as ✓ / ✕ on the slip), and the bank check also runs on that text directly, so a document that talks the model
    into reporting the old account still holds.
@@ -49,10 +51,13 @@ Clean Room Intake removes the choice:
                 │ 5. flags: vendor history (bank details, sender domain)
                 └─ 6. container removed; receipt stored
 ```
-The model never sees the file, only the text that came out of the sandbox. The sandbox never sees the key.
+The model never opens the file: it reads only the text that came out of the sandbox, marked as untrusted data. One more
+thing crosses from the room to the step-writing model: when a step fails, its error message (cut to 200 characters) goes
+back so the model can fix the step. A file could shape that message; at most it shapes the next step, which runs behind
+the same walls. The sandbox never sees the key.
 
 ## Containment (the walls, with numbers)
-End to end on the VM with the real model (`docs/e2e_vultr.json`): all five sample files extracted correctly; the bank-change invoice raised both flags; the HTML test file's two requests (to `example.com` and `1.1.1.1`) were stopped inside the room while both hosts answered from outside; rooms lived 0.7–7.5 s and were removed.
+End to end on the VM with the real model (`docs/e2e_vultr.json`): all five sample files extracted correctly; the bank-change invoice raised both flags; the HTML test file's two requests (to `example.com` and `1.1.1.1`) were stopped inside the room while both hosts answered from outside; rooms lived from under 1 s to about 8 s and were removed.
 
 | Wall | Setting | Checked on the Vultr VM (`deploy/containment_check.sh` → `docs/containment_check_vultr.txt`; Seattle, vc2-2c-4gb, x86_64, runsc release-20261102.0, 03.11) |
 |---|---|---|
@@ -104,7 +109,8 @@ VULTR_INFERENCE_KEY=... CLEANROOM_MODEL=... .venv/bin/uvicorn app.web:app
   | walls down: runc, Docker's default network, writable root filesystem | 6 of 11: disk, name lookup, IP, Vultr metadata, the host, the kernel |
 
   Said plainly: the ten "doing" attacks are stopped by the container walls; what gVisor adds, measurably, is that code
-  in the room never talks to the server's real kernel (it sees gVisor's own), which is what a kernel exploit needs.
+  in the room never makes system calls into the server's kernel directly (gVisor's own user-space kernel answers them,
+  and the room reports gVisor's kernel, not the server's), which is what a kernel exploit needs.
   We don't ship kernel exploits, so that second wall is shown, not stress-tested.
 - The vendor history (last invoice and bank details per vendor) is seeded; in a real shop it comes from the AP system.
 - **What runs outside the room, said plainly:** a forwarded `.eml` is unpacked on the server by Python's standard

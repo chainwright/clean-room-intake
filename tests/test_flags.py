@@ -25,8 +25,27 @@ class Flags(unittest.TestCase):
              "sender_email": "billing@bonneville-sheetmetal.example"}
         self.assertEqual(flags.check(f), [])
 
-    def test_unknown_vendor_no_guessing(self):
-        self.assertEqual(flags.check({"vendor": "Red Butte Electrical Contractors", "invoice_no": "RB-0932", "total": 450.9}), [])
+    def test_unknown_vendor_is_held_whatever_the_pay_method(self):
+        # fails closed: a check to a vendor we have never paid is the same risk as a new bank account
+        for pm in ("check", None):
+            f = flags.check({"vendor": "Red Butte Electrical Contractors", "invoice_no": "RB-0932", "total": 9800.0, "pay_method": pm})
+            self.assertEqual([x["code"] for x in f], ["new_vendor"])
+
+    def test_known_vendor_new_remit_address_holds(self):
+        f = flags.check({"vendor": "Bonneville Sheet Metal Supply", "invoice_no": "BSM-24200", "total": 736.81,
+                         "pay_method": "check", "remit_to": "PO Box 7781, Ogden, UT"})
+        self.assertEqual([x["code"] for x in f], ["remit_changed"])
+        same = flags.check({"vendor": "Bonneville Sheet Metal Supply", "invoice_no": "BSM-24200", "total": 736.81,
+                            "pay_method": "check", "remit_to": "2140 South 300 West, SLC, Utah"})
+        self.assertEqual(same, [])                                   # the same address written differently is not a change
+        unread = flags.check({"vendor": "Bonneville Sheet Metal Supply", "invoice_no": "BSM-24200", "total": 736.81,
+                              "pay_method": "check"})
+        self.assertEqual([x["code"] for x in unread], ["remit_changed"])   # a check with no readable address holds
+
+    def test_vendor_name_must_be_in_the_text(self):
+        f = flags.check({"vendor": "Bonneville Sheet Metal Supply", "invoice_no": "X-1", "total": 5.0},
+                        text="Bonneville Sheet Metal Supplies Ltd X-1 $5.00")
+        self.assertIn("not_in_text", [x["code"] for x in f])
 
     def test_missing_bank_on_invoice_is_not_a_change(self):
         self.assertEqual(flags.check({"vendor": "Granite Peak Refrigerants", "invoice_no": "GPR-5561", "total": 1236.0, "bank": {}}), [])

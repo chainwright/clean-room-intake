@@ -195,8 +195,8 @@ class FailClosed(unittest.TestCase):
 
     def test_hidden_instructions_hold(self):
         f = web.flags.check({"vendor": "Jordan River Plumbing Co.", "invoice_no": "JRP-7781", "total": 2940.0},
-                            text="JRP-7781 TOTAL DUE $2,940.00", notes=["Hidden instructions found inside the document. ..."])
-        self.assertEqual([x["code"] for x in f], ["hidden_instructions"])
+                            text="Jordan River Plumbing Co. JRP-7781 TOTAL DUE $2,940.00", notes=["Hidden instructions found inside the document. ..."])
+        self.assertEqual([x["code"] for x in f], ["hidden_instructions", "new_vendor"])
 
     def test_new_vendor_with_bank_details_holds(self):
         f = web.flags.check({"vendor": "Someone New LLC", "invoice_no": "N-1", "total": 10.0, "pay_method": "ach",
@@ -207,7 +207,7 @@ class FailClosed(unittest.TestCase):
     def test_known_vendor_same_bank_pays(self):
         self.assertEqual(web.flags.check({"vendor": "Bonneville Sheet Metal Supply", "invoice_no": "BSM-24117", "total": 736.81,
                                           "bank": {"routing": "000012345", "account_last4": "4471"}},
-                                         text="BSM-24117 $736.81 routing 000012345 ****4471"), [])
+                                         text="Bonneville Sheet Metal Supply BSM-24117 $736.81 routing 000012345 ****4471"), [])
 
 
 class PayGate(unittest.TestCase):
@@ -229,6 +229,17 @@ class PayGate(unittest.TestCase):
         self.assertEqual(self.c.post("/api/intake/j1/pay").status_code, 409)
         self.job()
         self.assertEqual(self.c.post("/api/intake/j1/pay").status_code, 200)
+
+    def test_approval_waits_for_the_flags_and_covers_only_those(self):
+        hold = {"code": "bank_changed", "blocks": True, "text": "x"}
+        self.job(done=False, state="opening")
+        self.assertEqual(self.c.post("/api/intake/j1/approve").status_code, 409)     # nothing read yet: no blank cheque
+        self.job(flags=[hold])
+        self.assertEqual(self.c.post("/api/intake/j1/pay").status_code, 409)
+        self.assertEqual(self.c.post("/api/intake/j1/approve").status_code, 200)
+        self.assertEqual(self.c.post("/api/intake/j1/pay").status_code, 200)
+        web.JOBS["j1"].update(paid=False, flags=[hold, {"code": "sender_domain", "blocks": True, "text": "y"}])
+        self.assertEqual(self.c.post("/api/intake/j1/pay").status_code, 409)         # a hold the controller never saw
 
 
 class Incomplete(unittest.TestCase):
@@ -303,7 +314,7 @@ class ControlByBytes(Control):
 class EmptyFields(unittest.TestCase):
     def test_text_but_no_fields_holds(self):
         f = web.flags.check({}, text="%%%% unreadable scraps")
-        self.assertEqual([x["code"] for x in f], ["incomplete"])
+        self.assertEqual([x["code"] for x in f], ["incomplete", "new_vendor"])
 
 
 class AccountSpellings(unittest.TestCase):

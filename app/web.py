@@ -337,8 +337,11 @@ def list_intakes(req: Request):
 def approve(jid: str, req: Request):
     with LOCK:
         j = _mine(req, jid)
-        j["approved"] = True
-        return {"ok": True}
+        if not j.get("done") or j.get("state") == "failed" or j.get("kind") == "breakin":
+            raise HTTPException(409, "Nothing to approve yet: the file hasn't been read.")
+        # the approval covers exactly the holds the controller saw; a different set of holds needs a new approval
+        j["approved"] = sorted(f["code"] for f in j["flags"] if f.get("blocks"))
+        return {"ok": True, "approved": j["approved"]}
 
 
 @app.post("/api/intake/{jid}/pay")
@@ -347,7 +350,8 @@ def pay(jid: str, req: Request):
         j = _mine(req, jid)
         if not j.get("done") or j.get("state") == "failed" or j.get("kind") == "breakin" or not j.get("fields"):
             raise HTTPException(409, "Not ready: the file hasn't been read yet, or it couldn't be read.")
-        if any(f.get("blocks") for f in j["flags"]) and not j["approved"]:
+        holds = sorted(f["code"] for f in j["flags"] if f.get("blocks"))
+        if holds and j.get("approved") != holds:
             raise HTTPException(409, "On hold: the controller has to approve the flags first.")
         j["paid"] = True
         return {"ok": True}

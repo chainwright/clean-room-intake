@@ -122,7 +122,7 @@ def run(filename: str, data: bytes, llm: Optional[Callable] = None, cmd_for=sand
         if txt.strip() and not raw:
             it.text = txt
             break
-        why = rec.error or (f"killed by {rec.killed_by}" if rec.killed_by else
+        why = (rec.error or "")[:200] or (f"killed by {rec.killed_by}" if rec.killed_by else
                             "it returned the file's raw bytes, not the document's text" if raw else "no text returned")
         ask = (f"File kind: {it.kind}. Your previous extract() failed inside the sandbox: {why}. "
                f"Write a corrected extract(path).")

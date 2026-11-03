@@ -221,7 +221,7 @@ function stub(j) {
   const tried = distinct(j);
   const held = (j.flags || []).some((x) => x.blocks) && !j.approved;
   const flagged = (j.flags || []).some((x) => x.blocks), hidden = (j.notes || []).some((n) => /instruction/i.test(n));
-  const callable = (j.flags || []).some((x) => ["bank_changed", "sender_domain", "new_vendor"].includes(x.code));
+  const callable = (j.flags || []).some((x) => ["bank_changed", "sender_domain", "new_vendor", "remit_changed"].includes(x.code));
   const st = failedOf(j) ? `<div class="st held">COULDN'T READ · ASK FOR A NEW COPY</div>`
     : held ? `<div class="st held">HOLD · needs you</div>` : flagged ? `<div class="st held">${callable ? "APPROVED AFTER CALL" : "APPROVED AFTER REVIEW"}</div>`
     : tried.length ? `<div class="st stopped">${tried.length} STOPPED</div>` : hidden ? `<div class="st held">HIDDEN INSTRUCTIONS FOUND</div>`
@@ -297,7 +297,7 @@ function renderSlip(j, reached, filled) {
   view.phase = phase;
   const tried = distinct(j), held = (j.flags || []).some((x) => x.blocks) && !j.approved;
   const stamp = !filled ? "" : tried.length ? `<div class="stamp">${tried.length} ATTEMPT${tried.length === 1 ? "" : "S"}<br>STOPPED AT THE GLASS</div>`
-    : held ? `<div class="stamp hold">${(j.flags || []).some((x) => ["bank_changed", "sender_domain", "new_vendor"].includes(x.code)) ? "HOLD · CALL VENDOR" : "HOLD · LOOK FIRST"}</div>` : "";
+    : held ? `<div class="stamp hold">${(j.flags || []).some((x) => ["bank_changed", "sender_domain", "new_vendor", "remit_changed"].includes(x.code)) ? "HOLD · CALL VENDOR" : "HOLD · LOOK FIRST"}</div>` : "";
   const top = !filled ? "" : held ? holdShort(j) :
     tried.length ? `<div class="tried">The file tried ${tried.length} thing${tried.length === 1 ? "" : "s"} while it was open. ${tried.length === 1 ? "It" : tried.length === 2 ? "Both" : "All"} stopped at the glass${(j.control || []).some((c) => /HTTP/.test(c.result)) ? " (outside the room, the same addresses answer)" : ""}. Your fields are below.</div>` : "";
   const bankFlag = (j.flags || []).find((x) => x.code === "bank_changed");
