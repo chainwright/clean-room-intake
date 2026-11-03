@@ -67,3 +67,5 @@ header .count{grid-column:2;font:15px 'IBM Plex Mono',monospace;color:var(--ink)
 .f.ghost .k{color:#c9c3b6}.f.ghost .v{color:transparent}
 .stub .st{font-weight:600;margin-bottom:4px}.stub .st.held{color:var(--brass)}.stub .st.stopped{color:var(--red)}.stub .st.clean{color:var(--muted)}
 .stub b.held{color:var(--brass)}
+
+.deny{margin:8px 0 0;padding:8px 12px;border-left:3px solid #b5382c;background:#fbeae7;color:#7a2219;font-size:15px}

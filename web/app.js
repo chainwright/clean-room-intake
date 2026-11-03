@@ -46,9 +46,19 @@ $("file").onchange = (e) => e.target.files[0] && upload(e.target.files[0]);
 drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("over"); };
 drop.ondragleave = () => drop.classList.remove("over");
 drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove("over"); e.dataTransfer.files[0] && upload(e.dataTransfer.files[0]); };
-async function upload(file) { const fd = new FormData(); fd.append("file", file); follow((await api("/api/intake", { method: "POST", body: fd })).id); }
+async function upload(file) {
+  const fd = new FormData(); fd.append("file", file);
+  try { follow((await api("/api/intake", { method: "POST", body: fd })).id); } catch (e) { deny(e); }
+}
+// a refusal (busy, over the hourly share, file too big) is said in one plain line under the drop zone
+function deny(e) {
+  let n = $("deny");
+  if (!n) { n = document.createElement("p"); n.id = "deny"; n.className = "deny"; drop.after(n); }
+  n.textContent = e.message || "Something went wrong. Try again in a moment."; clearTimeout(n.t); n.t = setTimeout(() => n.remove(), 8000);
+}
 async function start(body) {
-  follow((await api("/api/intake", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).id);
+  try { follow((await api("/api/intake", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).id); }
+  catch (e) { deny(e); }
 }
 
 // ---------- following one file: fetch fast, reveal at a human pace ----------

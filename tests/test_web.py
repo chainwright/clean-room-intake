@@ -72,3 +72,39 @@ class Web(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Quota(unittest.TestCase):
+    """The public demo can't be farmed: per-visitor hourly share, daily ceiling, a few rooms at once."""
+
+    def setUp(self):
+        web.JOBS.clear()
+        web._quota.update(hour="", ip={}, day="", n=0)
+        self.saved = (web.PER_IP_PER_HOUR, web.PER_DAY, web.MAX_RUNNING)
+
+    def tearDown(self):
+        web.PER_IP_PER_HOUR, web.PER_DAY, web.MAX_RUNNING = self.saved
+        web.JOBS.clear()
+
+    def test_hourly_share_per_visitor(self):
+        web.PER_IP_PER_HOUR, web.PER_DAY, web.MAX_RUNNING = 2, 100, 100
+        web._admit("1.1.1.1"); web._admit("1.1.1.1")
+        with self.assertRaises(web.HTTPException) as e:
+            web._admit("1.1.1.1")
+        self.assertEqual(e.exception.status_code, 429)
+        web._admit("2.2.2.2")   # someone else still gets in
+
+    def test_daily_ceiling(self):
+        web.PER_IP_PER_HOUR, web.PER_DAY, web.MAX_RUNNING = 100, 2, 100
+        web._admit("1.1.1.1"); web._admit("2.2.2.2")
+        with self.assertRaises(web.HTTPException):
+            web._admit("3.3.3.3")
+
+    def test_rooms_at_once(self):
+        web.PER_IP_PER_HOUR, web.PER_DAY, web.MAX_RUNNING = 100, 100, 1
+        web.JOBS["x"] = {"done": False}
+        with self.assertRaises(web.HTTPException) as e:
+            web._admit("1.1.1.1")
+        self.assertIn("rooms are open", e.exception.detail)
+        web.JOBS["x"]["done"] = True
+        web._admit("1.1.1.1")

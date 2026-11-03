@@ -27,6 +27,12 @@ from . import agent, devmode, flags
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INBOX = os.path.join(ROOT, "demo", "inbox")
 MAX_BYTES = 10 * 1024 * 1024
+# A public demo must not be farmed: each visitor gets a fair share per hour, the site has a daily ceiling,
+# and only a few rooms run at once (the VM has 2 vCPU). A visitor over a limit gets a plain sentence.
+PER_IP_PER_HOUR = int(os.environ.get("CLEANROOM_PER_IP_PER_HOUR", "30"))
+PER_DAY = int(os.environ.get("CLEANROOM_PER_DAY", "600"))
+MAX_RUNNING = int(os.environ.get("CLEANROOM_MAX_RUNNING", "4"))
+_quota = {"hour": "", "ip": {}, "day": "", "n": 0}
 
 app = FastAPI(title="Clean Room Intake")
 
@@ -74,6 +80,25 @@ def _work(job_id: str, name: str, data: bytes, sender: str):
             job.update(error=f"{type(e).__name__}: {e}"[:300], state="failed", done=True)
 
 
+def _admit(ip: str) -> None:
+    now = time.gmtime()
+    h, d = time.strftime("%Y%m%d%H", now), time.strftime("%Y%m%d", now)
+    with LOCK:
+        if _quota["hour"] != h:
+            _quota.update(hour=h, ip={})
+        if _quota["day"] != d:
+            _quota.update(day=d, n=0)
+        running = sum(1 for j in JOBS.values() if not j["done"])
+        if running >= MAX_RUNNING:
+            raise HTTPException(429, "A few rooms are open right now. Try again in a few seconds.")
+        if _quota["ip"].get(ip, 0) >= PER_IP_PER_HOUR:
+            raise HTTPException(429, "That's a lot of files from you this hour. Try again later.")
+        if _quota["n"] >= PER_DAY:
+            raise HTTPException(429, "The demo has opened its daily share of files. Try again tomorrow.")
+        _quota["ip"][ip] = _quota["ip"].get(ip, 0) + 1
+        _quota["n"] += 1
+
+
 def _start(name: str, data: bytes) -> str:
     if len(data) > MAX_BYTES:
         raise HTTPException(413, "Files up to 10 MB.")
@@ -91,6 +116,7 @@ def _start(name: str, data: bytes) -> str:
 
 @app.post("/api/intake")
 async def intake(req: Request, file: Optional[UploadFile] = File(default=None)):
+    _admit(req.client.host if req.client else "?")   # no proxy in front: the socket address, not a header anyone can set
     if file is not None:
         return {"id": _start(file.filename or "file", await file.read())}
     b = await req.json()
