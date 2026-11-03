@@ -59,7 +59,8 @@ back so the model can fix the step. A file could shape that message; at most it 
 the same walls. The sandbox never sees the key.
 
 ## Containment (the walls, with numbers)
-End to end on the VM with the real model (`docs/e2e_vultr.json`): all five sample files extracted correctly; the bank-change invoice raised both flags; the HTML test file's two requests (to `example.com` and `1.1.1.1`) were stopped inside the room while both hosts answered from outside; rooms lived from under 1 s to about 8 s and were removed.
+End to end on the VM with the real model (`docs/e2e_vultr.json`): all six sample files run, five read and one (the damaged copy) held as unreadable; the bank-change invoice raised both
+flags, every first-time vendor is held, and the file that tried to call out is held; the HTML test file's two requests (to `example.com` and `1.1.1.1`) were stopped inside the room while both hosts answered from outside; rooms lived from under 1 s to about 8 s and were removed.
 
 | Wall | Setting | Checked on the Vultr VM (`deploy/containment_check.sh` → `docs/containment_check_vultr.txt`; Seattle, vc2-2c-4gb, x86_64, runsc release-20261102.0, 03.11) |
 |---|---|---|

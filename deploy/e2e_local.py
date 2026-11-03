@@ -39,7 +39,7 @@ for name in sorted(os.listdir(inbox)):
         part = next(m.iter_attachments())
         name, data = part.get_filename(), part.get_content()
     states = []
-    it = agent.run(name, data, llm=llm, on_state=lambda s: states.append(s))
+    it = agent.run(name, data, llm=llm, on_state=lambda s, why="": states.append(s))
     f = flags.check(it.fields, sender=sender or None, text=it.text, notes=it.flags,
                     attempts=[a for t in it.tries for a in t["receipt"]["attempts"]])   # the same checks as the app
     rec = it.tries[-1]["receipt"] if it.tries else {}
