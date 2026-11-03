@@ -72,8 +72,8 @@ def check(fields: dict, sender: Optional[str] = None, text: str = "", notes: Opt
     `sender` is the From address of the email that carried the file. `text` is what came out of the room: the bank
     check runs on it directly as well, so a document that talks the model into reporting the old account still holds."""
     out: List[dict] = []
-    missing = [k for k, v in (("amount", fields.get("total")), ("invoice number", fields.get("invoice_no"))) if v in (None, "")]
-    if fields and missing:
+    missing = [k for k, v in (("amount", (fields or {}).get("total")), ("invoice number", (fields or {}).get("invoice_no"))) if v in (None, "")]
+    if missing and (fields or text):              # read something, but not what a payment needs: hold, don't call it ready
         out.append({"code": "incomplete", "blocks": True,
                     "text": f"Couldn't read the {' or the '.join(missing)} from this file. Ask the vendor for a clean copy before paying."})
     for row in (verify(fields, text) if text else []):      # no text out of the room = nothing was read to verify

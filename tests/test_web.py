@@ -298,3 +298,9 @@ class ControlByBytes(Control):
     def test_a_strangers_file_with_our_name_gets_no_check(self):
         self.assertEqual(web.control("wasatch_valve_WVS-3310_TESTFILE.html", [self.att("https://example.com/x")], b"<html>not ours</html>"), [])
         self.assertEqual(self.calls, [])
+
+
+class EmptyFields(unittest.TestCase):
+    def test_text_but_no_fields_holds(self):
+        f = web.flags.check({}, text="%%%% unreadable scraps")
+        self.assertEqual([x["code"] for x in f], ["incomplete"])
