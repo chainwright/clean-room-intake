@@ -15,11 +15,13 @@ def local(room, work, caps):
 
 
 class Fake:
-    def __init__(self, fields):
-        self.fields = fields
+    def __init__(self, fields, text=None):
+        self.fields, self.text = fields, text
 
     def __call__(self, system, user):
         if system.startswith("You write"):
+            if self.text is not None:           # a step that returns the invoice's real text, as the model's would
+                return f"def extract(path):\n    return {{'text': {self.text!r}}}\n"
             return "def extract(path):\n    return {'text': open(path,'rb').read().decode('latin-1')}\n"
         return json.dumps(self.fields)
 
@@ -33,8 +35,8 @@ class Web(unittest.TestCase):
     def tearDown(self):
         agent.run = self._run
 
-    def use(self, fields):
-        agent.run = lambda name, data, **kw: self._run(name, data, llm=Fake(fields), cmd_for=local,
+    def use(self, fields, text=None):
+        agent.run = lambda name, data, **kw: self._run(name, data, llm=Fake(fields, text), cmd_for=local,
                                                          caps=sandbox.Caps(seconds=10), on_state=kw.get("on_state"))
 
     def wait(self, jid):
@@ -46,8 +48,9 @@ class Web(unittest.TestCase):
         self.fail("not done")
 
     def test_bank_change_email_is_held_until_controller_approves(self):
-        self.use({"vendor": "Granite Peak Refrigerants", "total": 1236.0,
-                  "bank": {"routing": "000098765", "account_last4": "9013"}})
+        self.use({"vendor": "Granite Peak Refrigerants", "invoice_no": "GPR-5561", "total": 1236.0,
+                  "bank": {"routing": "000098765", "account_last4": "9013"}},
+                 "Granite Peak Refrigerants INVOICE GPR-5561 TOTAL $1,236.00 Summit Ridge Bank routing 000098765 account ****9013")
         jid = self.c.post("/api/intake", json={"sample": "granite_peak_GPR-5561.eml"}).json()["id"]
         j = self.wait(jid)
         self.assertEqual(j["file"], "GPR-5561.docx")                       # the attachment, unwrapped
@@ -59,8 +62,9 @@ class Web(unittest.TestCase):
         self.assertEqual(j["states"][-1]["state"], "destroyed")
 
     def test_clean_invoice_pays_straight_away(self):
-        self.use({"vendor": "Bonneville Sheet Metal Supply", "total": 736.81,
-                  "bank": {"routing": "000012345", "account_last4": "4471"}})
+        self.use({"vendor": "Bonneville Sheet Metal Supply", "invoice_no": "BSM-24117", "total": 736.81,
+                  "bank": {"routing": "000012345", "account_last4": "4471"}},
+                 "Bonneville Sheet Metal Supply INVOICE BSM-24117 Total $736.81 Mountain Ledger Bank routing 000012345 account ****4471")
         jid = self.c.post("/api/intake", json={"sample": "bonneville_BSM-24117.pdf"}).json()["id"]
         self.wait(jid)
         self.assertEqual(self.c.post(f"/api/intake/{jid}/pay").status_code, 200)
@@ -173,3 +177,33 @@ class Control(unittest.TestCase):
                            self.att("https://example.com/pixel.png?i=1"), self.att("https://1.1.1.1/t?d=x")])
         self.assertEqual([c["host"] for c in out], ["https://example.com", "https://1.1.1.1"])
         self.assertEqual(self.calls, ["https://example.com/", "https://1.1.1.1/"])   # bare host, nothing from the file
+
+
+
+class FailClosed(unittest.TestCase):
+    """The hold doesn't trust the model: it is checked against the room's own text."""
+    TXT = "Granite Peak Refrigerants INVOICE GPR-5561 TOTAL $1,236.00 Summit Ridge Bank routing 000098765 account ****9013"
+
+    def test_talked_into_the_old_account_still_holds(self):
+        # the model was persuaded to report the vendor's OLD bank details; the text says otherwise
+        f = web.flags.check({"vendor": "Granite Peak Refrigerants", "invoice_no": "GPR-5561", "total": 1236.0,
+                             "bank": {"routing": "000067890", "account_last4": "2208"}}, text=self.TXT)
+        codes = [x["code"] for x in f]
+        self.assertIn("bank_changed", codes)             # 000098765 is in the text and isn't the known routing
+        self.assertIn("not_in_text", codes)              # and the reported old routing isn't in the file at all
+
+    def test_hidden_instructions_hold(self):
+        f = web.flags.check({"vendor": "Jordan River Plumbing Co.", "invoice_no": "JRP-7781", "total": 2940.0},
+                            text="JRP-7781 TOTAL DUE $2,940.00", notes=["Hidden instructions found inside the document. ..."])
+        self.assertEqual([x["code"] for x in f], ["hidden_instructions"])
+
+    def test_new_vendor_with_bank_details_holds(self):
+        f = web.flags.check({"vendor": "Someone New LLC", "invoice_no": "N-1", "total": 10.0, "pay_method": "ach",
+                             "bank": {"routing": "000011111", "account_last4": "1111"}},
+                            text="Someone New LLC N-1 $10.00 routing 000011111 ****1111")
+        self.assertEqual([x["code"] for x in f], ["new_vendor"])
+
+    def test_known_vendor_same_bank_pays(self):
+        self.assertEqual(web.flags.check({"vendor": "Bonneville Sheet Metal Supply", "invoice_no": "BSM-24117", "total": 736.81,
+                                          "bank": {"routing": "000012345", "account_last4": "4471"}},
+                                         text="BSM-24117 $736.81 routing 000012345 ****4471"), [])

@@ -42,7 +42,8 @@ class Receipt:
     runtime: str
     caps: dict
     network: str = "none"
-    secrets_inside: int = 0
+    secrets_inside: Optional[int] = None     # measured inside the room by the runner; None = it didn't report
+    env_names: List[str] = field(default_factory=list)
     started: float = 0.0
     destroyed: float = 0.0
     exit_code: Optional[int] = None
@@ -72,6 +73,8 @@ def parse_lines(out: str, r: Receipt) -> None:
             continue
         if ev.get("ev") == "attempt":
             r.attempts.append({k: ev[k] for k in ("what", "detail", "t") if k in ev})
+        elif ev.get("ev") == "env":
+            r.secrets_inside, r.env_names = ev.get("secretlike"), list(ev.get("names") or [])
         elif ev.get("ev") == "probe":
             r.probes.append({k: ev.get(k) for k in ("attack", "how", "outcome", "held", "t")})
         elif ev.get("ev") == "result":

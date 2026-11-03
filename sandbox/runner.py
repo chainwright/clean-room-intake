@@ -113,6 +113,8 @@ def main():
     for k in list(os.environ):
         if k not in ("PATH", "HOME", "LANG", "LC_ALL", "CLEANROOM_CHROME"):
             del os.environ[k]
+    # measured, not assumed: what the step can see, and how many of those names look like secrets
+    emit(ev="env", names=sorted(os.environ), secretlike=sum(1 for k in os.environ if SECRETY.search(k)))
     os.environ = WatchedEnv(os.environ)          # noqa: B003 (deliberate)
     sys.addaudithook(hook)
     ns = {"__name__": "step", "FILE": IN + "/file"}

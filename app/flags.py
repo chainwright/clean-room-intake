@@ -29,16 +29,58 @@ def _domain(email: Optional[str]) -> str:
     return m.group(1).lower() if m else ""
 
 
-def check(fields: dict, sender: Optional[str] = None) -> List[dict]:
-    """Returns flags: {"code", "text", "blocks": True}. `sender` is the From address of the email that carried
-    the file, when there is one (its domain is checked as well as the one printed on the invoice)."""
-    out: List[dict] = []
-    h = HISTORY.get(_key(fields.get("vendor")))
-    if not h:
-        return out
+def _money(v) -> List[str]:
+    try:
+        x = float(v)
+    except (TypeError, ValueError):
+        return []
+    return [f"{x:,.2f}", f"{x:.2f}"]
+
+
+def verify(fields: dict, text: str) -> List[dict]:
+    """The model's answer, checked against the text that came out of the room, without the model: every field it
+    reported has to be in the file's own text. A field the model invented (or was talked into) shows up as not found."""
+    t = text or ""
+    low = t.lower()
     bank = fields.get("bank") or {}
+    rows = []
+    for name, value, forms in (("invoice", fields.get("invoice_no"), [str(fields.get("invoice_no") or "").lower()]),
+                               ("amount", fields.get("total"), _money(fields.get("total"))),
+                               ("routing", bank.get("routing"), [str(bank.get("routing") or "")]),
+                               ("account", bank.get("account_last4"), [str(bank.get("account_last4") or "")])):
+        if value in (None, ""):
+            continue
+        found = any(f and (f in low if name == "invoice" else f in t) for f in forms)
+        rows.append({"field": name, "value": value, "found": found})
+    return rows
+
+
+ROUTING = re.compile(r"(?<!\d)(\d{9})(?!\d)")
+
+
+def check(fields: dict, sender: Optional[str] = None, text: str = "", notes: Optional[List[str]] = None) -> List[dict]:
+    """Returns flags: {"code", "text", "blocks": True}. Fails closed: a hold unless the payment details are known good.
+    `sender` is the From address of the email that carried the file. `text` is what came out of the room: the bank
+    check runs on it directly as well, so a document that talks the model into reporting the old account still holds."""
+    out: List[dict] = []
+    for row in (verify(fields, text) if text else []):      # no text out of the room = nothing was read to verify
+        if not row["found"]:
+            out.append({"code": "not_in_text", "blocks": True, "field": row["field"], "value": row["value"],
+                        "text": f"The model reported {row['field']} {row['value']}, but it isn't in the file's text."})
+    if any("instruction" in n.lower() for n in (notes or [])):
+        out.append({"code": "hidden_instructions", "blocks": True,
+                    "text": "The file carries hidden instructions aimed at software. A person should look at it before it is paid."})
+    h = HISTORY.get(_key(fields.get("vendor")))
+    bank = fields.get("bank") or {}
+    if not h:
+        if (fields.get("pay_method") == "ach") or bank.get("routing") or bank.get("account_last4") or ROUTING.search(text or ""):
+            out.append({"code": "new_vendor", "blocks": True,
+                        "text": "First invoice from this vendor with bank details: confirm them by phone before the first payment."})
+        return out
     r, a = (bank.get("routing") or "").strip(), (bank.get("account_last4") or "").strip()
-    if (r and r != h["routing"]) or (a and a != h["account_last4"]):
+    in_text = set(ROUTING.findall(text or ""))
+    changed = (r and r != h["routing"]) or (a and a != h["account_last4"]) or bool(in_text - {h["routing"]})
+    if changed:
         new_bank = (bank.get("name") or "a new bank").replace(" (EXAMPLE)", "")
         out.append({"code": "bank_changed", "blocks": True, "last_invoice": h["last_invoice"], "last_date": h["date"],
                     "was": f"{h['bank'].replace(' (EXAMPLE)', '')} ****{h['account_last4']}", "now": f"{new_bank} ****{a or '?'}",

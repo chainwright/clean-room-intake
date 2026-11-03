@@ -195,7 +195,7 @@ function breakinStub(j) {
   const ps = j.probes || [], held = ps.filter((p) => p.held).length, r = j.tries?.[0]?.receipt; if (!r) return "";
   const rooms = j.tries.map((t) => `${t.receipt.room.toUpperCase()} · lived ${Math.max(0, t.receipt.destroyed - t.receipt.started).toFixed(2)} s · exit ${t.receipt.exit_code}`);
   return `<div class="stub"><div class="st ${held === ps.length ? "stopped" : "got"}">${held} OF ${ps.length} STOPPED</div>Break-in test · our attack script<hr>` +
-    `NET ${esc(r.network)} · FS read-only<br>MEM ${r.caps.memory_mb}&nbsp;MB · CPU&nbsp;${r.caps.cpus} · ${r.caps.seconds}&nbsp;s<br>secrets inside: ${r.secrets_inside} · runtime ${esc(r.runtime)}<hr>` +
+    `NET ${esc(r.network)} · FS read-only<br>MEM ${r.caps.memory_mb}&nbsp;MB · CPU&nbsp;${r.caps.cpus} · ${r.caps.seconds}&nbsp;s<br>secrets inside: ${r.secrets_inside ?? "not measured"}${r.env_names?.length ? ` (sees ${esc(r.env_names.join(", "))})` : ""} · runtime ${esc(r.runtime)}<hr>` +
     ps.map((p) => p.held ? `<span class="x">✕ ${esc(p.attack)}</span>` : `<span class="got">⚠ ${esc(p.attack)} · got through</span>`).join("<br>") +
     `<hr>${rooms.map(esc).join("<br>")}<br>both rooms destroyed ✓${rawRecord(j)}</div>`;
 }
@@ -205,13 +205,14 @@ function stub(j) {
   const tried = distinct(j);
   const held = (j.flags || []).some((x) => x.blocks) && !j.approved;
   const flagged = (j.flags || []).some((x) => x.blocks), hidden = (j.notes || []).some((n) => /instruction/i.test(n));
-  const st = held ? `<div class="st held">HOLD · needs you</div>` : flagged ? `<div class="st held">APPROVED AFTER CALL</div>`
+  const callable = (j.flags || []).some((x) => ["bank_changed", "sender_domain", "new_vendor"].includes(x.code));
+  const st = held ? `<div class="st held">HOLD · needs you</div>` : flagged ? `<div class="st held">${callable ? "APPROVED AFTER CALL" : "APPROVED AFTER REVIEW"}</div>`
     : tried.length ? `<div class="st stopped">${tried.length} STOPPED</div>` : hidden ? `<div class="st held">HIDDEN INSTRUCTIONS FOUND</div>`
     : `<div class="st clean">clean</div>`;
   const short = (d) => d.replace(/^the page tried to send its title to (\S+)/, "page title → $1").replace(/^the page tried to load an image from (\S+)/, "image ← $1")
     .replace(/^the page tried to reach |^tried to (reach|read) /, "").replace(" · nothing there", " · not there");
   return `<div class="stub">${st}No. ${esc(r.room.toUpperCase())}<br>${esc(j.file)}<hr>` +
-    `NET ${esc(r.network)} · FS read-only<br>MEM ${r.caps.memory_mb}&nbsp;MB · CPU&nbsp;${r.caps.cpus} · ${r.caps.seconds}&nbsp;s<br>secrets inside: ${r.secrets_inside} · runtime ${esc(r.runtime)}<hr>` +
+    `NET ${esc(r.network)} · FS read-only<br>MEM ${r.caps.memory_mb}&nbsp;MB · CPU&nbsp;${r.caps.cpus} · ${r.caps.seconds}&nbsp;s<br>secrets inside: ${r.secrets_inside ?? "not measured"}${r.env_names?.length ? ` (sees ${esc(r.env_names.join(", "))})` : ""} · runtime ${esc(r.runtime)}<hr>` +
     (tried.length ? tried.map((d) => `<span class="x">✕ ${esc(short(d))}</span>`).join("<br>") : "Attempts stopped: none") +
     ((j.control || []).length ? `<hr><span class="ctl">control · the same hosts from the server, outside the room:</span><br>` +
       j.control.map((c) => `<span class="ok">✓ ${esc(c.host.replace(/^https?:\/\//, ""))} answers (${esc(c.result)}) in ${c.ms} ms</span>`).join("<br>") : "") +
@@ -223,7 +224,9 @@ function holdShort(j) {
   const bank = (j.flags || []).some((x) => x.code === "bank_changed"), dom = (j.flags || []).find((x) => x.code === "sender_domain");
   const vendor = ((j.fields || {}).vendor || "the vendor").split(" ").slice(0, 2).join(" ");
   const what = [bank ? "New bank account" : "", dom ? `sent from a look-alike address (${esc(dom.domain.slice(dom.usual.length) || dom.domain)})` : ""].filter(Boolean).join(", ");
-  return `<div class="hold"><b>HOLD</b> · ${what || "Needs a check"}. Call ${esc(vendor)} on the number you have on file.</div>`;
+  const other = (j.flags || []).filter((x) => !["bank_changed", "sender_domain"].includes(x.code)).map((x) => esc(x.text)).join(" ");
+  if (!what) return `<div class="hold"><b>HOLD</b> · ${other || "Needs a check."}</div>`;
+  return `<div class="hold"><b>HOLD</b> · ${what}. Call ${esc(vendor)} on the number you have on file.${other ? " " + other : ""}</div>`;
 }
 function senderRow(j) {
   const dom = (j.flags || []).find((x) => x.code === "sender_domain"); if (!dom) return "";
@@ -241,7 +244,8 @@ function holdHtml(j) {
     const marked = d.startsWith(u) ? `${u}<b>${d.slice(u.length)}</b>` : d;
     parts.push(`Sent from <span class="dom">${marked}</span>, not their usual <span class="dom">${u}</span>.`);
   }
-  return `<div class="hold"><b>HOLD</b> · ${parts.join("<br>")} Call ${esc(vendor.split(" ").slice(0, 2).join(" "))} on the number you have on file.</div>`;
+  (j.flags || []).filter((x) => !["bank_changed", "sender_domain"].includes(x.code)).forEach((x) => parts.push(esc(x.text)));
+  return `<div class="hold"><b>HOLD</b> · ${parts.join("<br>")}${bank || dom ? ` Call ${esc(vendor.split(" ").slice(0, 2).join(" "))} on the number you have on file.` : ""}</div>`;
 }
 
 function renderBreakinSlip(j, filled) {
@@ -276,7 +280,7 @@ function renderSlip(j, reached, filled) {
   view.phase = phase;
   const tried = distinct(j), held = (j.flags || []).some((x) => x.blocks) && !j.approved;
   const stamp = !filled ? "" : tried.length ? `<div class="stamp">${tried.length} ATTEMPT${tried.length === 1 ? "" : "S"}<br>STOPPED AT THE GLASS</div>`
-    : held ? `<div class="stamp hold">HOLD · CALL VENDOR</div>` : "";
+    : held ? `<div class="stamp hold">${(j.flags || []).some((x) => ["bank_changed", "sender_domain", "new_vendor"].includes(x.code)) ? "HOLD · CALL VENDOR" : "HOLD · LOOK FIRST"}</div>` : "";
   const top = !filled ? "" : held ? holdShort(j) :
     tried.length ? `<div class="tried">The file tried ${tried.length} thing${tried.length === 1 ? "" : "s"} while it was open. ${tried.length === 1 ? "It" : tried.length === 2 ? "Both" : "All"} stopped at the glass${(j.control || []).some((c) => /HTTP/.test(c.result)) ? " (outside the room, the same addresses answer)" : ""}. Your fields are below.</div>` : "";
   const bankFlag = (j.flags || []).find((x) => x.code === "bank_changed");
@@ -289,6 +293,8 @@ function renderSlip(j, reached, filled) {
   const fields = !filled ? ["Amount", "Invoice", "Due", "Pay by"].map((k) => `<div class="f ghost"><span class="k">${k}</span><span class="v">·</span></div>`).join("")
     : rows.filter(([, v]) => v).map(([k, v, c], i) =>
     `<div class="f fill" style="animation-delay:${i * 80}ms"><span class="k">${k}</span><span class="v ${c === "amt" ? "amt" : ""}">${c === "raw" ? v : esc(v)}</span></div>`).join("");
+  const ver = !filled || !(j.verify || []).length ? "" : `<div class="ver">checked against the room's text, not the model: ` +
+    j.verify.map((v) => `<span class="${v.found ? "ok" : "no"}">${esc(v.field)} ${v.found ? "✓" : "✕ not in the file"}</span>`).join(" · ") + `</div>`;
   const notes = !filled ? "" : (j.notes || []).map((n) => {
     const q = /“([^”]+)”/.exec(n);                     // the hidden text itself, quoted, so nobody has to take our word for it
     return `<div class="note">${esc(n.replace(/\s*“[^”]+”/, ""))}${q ? `<div class="quote">${esc(q[1])}</div>` : ""}</div>`;
@@ -299,7 +305,7 @@ function renderSlip(j, reached, filled) {
   const sub = j.sender ? `From <span class="dom">${esc((/<([^>]+)>/.exec(j.sender) || [, j.sender])[1])}</span> · <span class="fn">${esc(j.file)}</span>`
     : `<span class="fn">${esc(j.file)}</span>${/TESTFILE/.test(j.file) ? " · our test file" : ""}`;
   el.innerHTML = stamp + `<h2>${esc(filled ? (f.vendor || "Unknown vendor") : "In the room…")}</h2><div class="sub">${sub}</div>` +
-    `<div class="marks">${marks}</div>${top}${held && filled ? btn : ""}${fields}${filled && j.error ? `<div class="tried">${esc(j.error)}</div>` : ""}${notes}${held && filled ? "" : btn}`;
+    `<div class="marks">${marks}</div>${top}${held && filled ? btn : ""}${fields}${ver}${filled && j.error ? `<div class="tried">${esc(j.error)}</div>` : ""}${notes}${held && filled ? "" : btn}`;
   const p = $("pay"); if (p) p.onclick = async () => { await api(`/api/intake/${j.id}/pay`, { method: "POST" }).catch((e) => alert(e.message)); reload(j.id); };
   const a = $("appr"); if (a) a.onclick = async () => { await api(`/api/intake/${j.id}/approve`, { method: "POST" }); reload(j.id); };
 }

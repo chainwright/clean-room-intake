@@ -106,10 +106,11 @@ def _work(job_id: str, name: str, data: bytes, sender: str):
             it = agent.run(name, data, llm=devmode.fake_llm, cmd_for=devmode.local_cmd, on_state=on_state)
         else:
             it = agent.run(name, data, on_state=on_state)
-        f = flags.check(it.fields, sender=sender or None)
+        f = flags.check(it.fields, sender=sender or None, text=it.text, notes=it.flags)
+        ver = flags.verify(it.fields, it.text)
         ctl = [] if devmode.ON else control(name, [a for t in it.tries for a in t["receipt"]["attempts"]])
         with LOCK:
-            job.update(kind=it.kind, fields=it.fields, text=it.text, notes=it.flags, control=ctl,
+            job.update(kind=it.kind, fields=it.fields, text=it.text, notes=it.flags, control=ctl, verify=ver,
                        flags=f, hold=flags.hold_text(f, (it.fields or {}).get("vendor", "")),
                        tries=it.tries, error=it.error, done=True)
     except Exception as e:   # the clean room must never take the app down

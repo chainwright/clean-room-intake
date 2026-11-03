@@ -24,8 +24,11 @@ Clean Room Intake removes the choice:
 2. A fresh sandbox opens it on the other side of the glass; she watches it happen.
 3. She gets the vendor, invoice number, amount, due date and bank details as plain text, each with the page it came from.
 4. The sandbox is destroyed. The receipt stays.
-5. If the bank details changed, or the email came from a look-alike domain, **Send to pay list** is held until the
-   controller approves.
+5. **Send to pay list** is held until the controller approves whenever the bank details changed, the email came from
+   a look-alike domain, the file carries hidden instructions, or a new vendor sends bank details. The hold fails closed
+   and doesn't trust the model: every field the model reported is checked against the text that came out of the room
+   (shown as ✓ / ✕ on the slip), and the bank check also runs on that text directly, so a document that talks the model
+   into reporting the old account still holds.
 
 ## Vultr services
 | Service | What it does here |
@@ -55,7 +58,7 @@ End to end on the VM with the real model (`docs/e2e_vultr.json`): all five sampl
 |---|---|---|
 | Kernel | gVisor `runsc` between the file and the host | `dmesg`: "Starting gVisor..." |
 | Network | `--network=none` | connect to example.com: name resolution fails |
-| Secrets | no environment passed in; the key stays in `/etc/cleanroom.env` for the orchestrator only; the runner drops the base image's variables before the step runs | the step sees only `HOME LANG PATH` |
+| Secrets | no environment passed in; the key stays in `/etc/cleanroom.env` for the orchestrator only; the runner drops the base image's variables before the step runs | measured in every room and printed on its receipt: the step sees only `HOME LANG PATH`, 0 secret-looking names |
 | Filesystem | `--read-only`, 64 MB tmpfs, input mounted read-only | write to `/`: refused |
 | Memory | 512 MB, no swap | 1 GB allocation: killed (exit 137) |
 | Processes | 128 pids | containment check: 500 `sleep` processes, stopped at 50 (`ENOMEM`). Break-in test: 500 forks, stopped at ~51, gVisor ends the room (exit 2); control with the cap raised to 1000: all 500 start, so it is the cap |
