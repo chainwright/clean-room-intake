@@ -23,7 +23,9 @@ function host(detail) {
 }
 function describe(a) {
   if (a.what === "getenv") return `tried to read ${a.detail} · nothing there`;
-  if (a.what === "browser") return `the page tried to load ${host(a.detail)}${/[?&]d=/.test(a.detail) ? " with the invoice title in the URL" : ""} · no network`;
+  if (a.what === "browser") return /[?&]d=/.test(a.detail) ? `the page tried to send its title to ${host(a.detail)} · no network`
+    : /\.(png|gif|jpe?g|svg|webp)/i.test(a.detail) ? `the page tried to load an image from ${host(a.detail)} · no network`
+    : `the page tried to reach ${host(a.detail)} · no network`;
   if (a.what.startsWith("socket") || a.what === "urllib.Request") return `tried to reach ${host(a.detail)} · no network`;
   if (a.what === "open") return `tried to open ${a.detail} · read-only room`;
   return `tried ${a.what} · stopped`;
@@ -52,7 +54,7 @@ async function start(body) {
 // ---------- following one file: fetch fast, reveal at a human pace ----------
 function follow(id, instant = false) {
   current = id; view = { j: null, beats: [], shown: 0, last: 0, instant, filled: false, phase: null, reached: new Set() };
-  $("log").className = "log"; $("log").style.display = ""; $("log").innerHTML = ""; $("pins").innerHTML = ""; $("stub").innerHTML = ""; $("drawer").classList.remove("out");
+  $("log").className = "log"; $("log").style.display = ""; $("log").innerHTML = ""; $("drawer").style.top = ""; $("pins").innerHTML = ""; $("stub").innerHTML = ""; $("drawer").classList.remove("out");
   $("slip").className = "slip"; $("slip").innerHTML = "";
   clearInterval(timer); clearInterval(ticker);
   timer = setInterval(() => poll(id), 300); poll(id);
@@ -121,20 +123,28 @@ function finish() {
     if (id !== current) return;
     $("log").style.display = "none"; $("pins").innerHTML = "";   // nothing left over there but the receipt
     $("stub").innerHTML = stub(j);
+    const st = $("stub").firstElementChild;                      // the drawer sits on the receipt it delivered
+    if (st) $("drawer").style.top = `${st.offsetTop + st.offsetHeight + 14}px`;   // just under the receipt it delivered
   }, view.instant ? 0 : 600);
   refreshQueue(true);
 }
 
+function lived(j) {
+  const at = (k) => j.states.find((s) => s.state === k)?.at;
+  const a = at("sandbox_up") ?? j.states[0].at, b = at("destroyed") ?? a;
+  return Math.max(0, b - a).toFixed(2);
+}
 function stub(j) {
   const r = j.tries?.at(-1)?.receipt; if (!r) return "";
   const tried = distinct(j);
   const held = (j.flags || []).some((x) => x.blocks) && !j.approved;
   const st = held ? `<div class="st held">HOLD · needs you</div>` : tried.length ? `<div class="st stopped">${tried.length} STOPPED</div>` : `<div class="st clean">clean</div>`;
-  const short = (d) => d.replace(/^the page tried to load |^tried to (reach|read) /, "").replace(" · nothing there", " · not there").replace(" with the invoice title in the URL", " (title in URL)");
+  const short = (d) => d.replace(/^the page tried to send its title to (\S+)/, "page title → $1").replace(/^the page tried to load an image from (\S+)/, "image ← $1")
+    .replace(/^the page tried to reach |^tried to (reach|read) /, "").replace(" · nothing there", " · not there");
   return `<div class="stub">${st}No. ${esc(r.room.toUpperCase())}<br>${esc(j.file)}<hr>` +
     `NET ${esc(r.network)} · FS read-only<br>MEM ${r.caps.memory_mb}&nbsp;MB · CPU&nbsp;${r.caps.cpus} · ${r.caps.seconds}&nbsp;s<br>secrets inside: ${r.secrets_inside} · runtime ${esc(r.runtime)}<hr>` +
     (tried.length ? tried.map((d) => `<span class="x">✕ ${esc(short(d))}</span>`).join("<br>") : "Attempts stopped: none") +
-    `<hr>opened ${hhmmss(r.started)} · destroyed ${hhmmss(r.destroyed)}${j.tries.length > 1 ? ` · ${j.tries.length} tries` : ""}</div>`;
+    `<hr>room lived ${lived(j)} s · destroyed ✓${j.tries.length > 1 ? ` · ${j.tries.length} tries` : ""}</div>`;
 }
 
 // ---------- the slip (left) ----------
@@ -199,10 +209,10 @@ function renderSlip(j, reached, filled) {
   const btn = !filled ? "" : j.paid ? `<div class="note">On the pay list.</div>`
     : held ? `<button class="btn" disabled>Waiting for controller</button><button class="btn ghost" id="appr">Controller: approve</button>`
     : j.state === "failed" ? "" : `<button class="btn" id="pay">Send to pay list</button>`;
-  const sub = j.sender ? `Email from <span class="dom">${esc((/<([^>]+)>/.exec(j.sender) || [, j.sender])[1])}</span> · attachment <span class="fn">${esc(j.file)}</span>`
+  const sub = j.sender ? `From <span class="dom">${esc((/<([^>]+)>/.exec(j.sender) || [, j.sender])[1])}</span> · <span class="fn">${esc(j.file)}</span>`
     : `<span class="fn">${esc(j.file)}</span>${/TESTFILE/.test(j.file) ? " · our own harmless test file" : ""}`;
   el.innerHTML = stamp + `<h2>${esc(filled ? (f.vendor || "Unknown vendor") : "In the room…")}</h2><div class="sub">${sub}</div>` +
-    `<div class="marks">${marks}</div>${top}${fields}${filled && j.error ? `<div class="tried">${esc(j.error)}</div>` : ""}${notes}${btn}`;
+    `<div class="marks">${marks}</div>${top}${held && filled ? btn : ""}${fields}${filled && j.error ? `<div class="tried">${esc(j.error)}</div>` : ""}${notes}${held && filled ? "" : btn}`;
   const p = $("pay"); if (p) p.onclick = async () => { await api(`/api/intake/${j.id}/pay`, { method: "POST" }).catch((e) => alert(e.message)); reload(j.id); };
   const a = $("appr"); if (a) a.onclick = async () => { await api(`/api/intake/${j.id}/approve`, { method: "POST" }); reload(j.id); };
 }

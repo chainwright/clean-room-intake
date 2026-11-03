@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Clean Room Intake — slides</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+@page{size:1280px 720px;margin:0}
+:root{--paper:#F6F4EF;--glass:#23262B;--brass:#8F6516;--red:#C2412D;--ink:#1d1f23;--muted:#62666d}
+*{box-sizing:border-box}body{margin:0;font-family:'Public Sans',sans-serif;color:var(--ink)}
+section{width:1280px;height:720px;padding:72px 88px;background:var(--paper);page-break-after:always;position:relative;overflow:hidden}
+section.dark{background:var(--glass);color:#ece7dc}
+.k{font:600 14px 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:22px}
+.dark .k{color:#a3a9b1}
+h1{font-size:64px;line-height:1.05;margin:0 0 24px;font-weight:800}h2{font-size:44px;line-height:1.12;margin:0 0 22px}
+p,li{font-size:26px;line-height:1.45}.big{font-size:120px;font-weight:800;color:var(--red);line-height:1}
+.src{position:absolute;left:88px;bottom:40px;font:14px 'IBM Plex Mono',monospace;color:var(--muted)}
+table{border-collapse:collapse;font-size:22px;width:100%}td{padding:10px 14px;border-top:1px solid #d9d3c6}td:first-child{color:var(--muted);width:30%}
+.dark td{border-color:#3a3e45}.x{color:#ff9a88}.hold{color:var(--brass);font-weight:700}
+.shot{width:100%;border:1px solid #d9d3c6;border-radius:8px}
+.foot{position:absolute;right:88px;bottom:40px;font:600 14px 'IBM Plex Mono',monospace;color:var(--muted)}
+</style></head><body>
+
+<section><div class="k">The problem</div><div class="big">$3.05B</div>
+<p>reported lost to business email compromise in the US in 2025. A changed bank account on a normal-looking invoice is one of the oldest moves.</p>
+<div class="src">FBI IC3, 2025 Internet Crime Report, p. 8</div><div class="foot">Clean Room Intake</div></section>
+
+<section><div class="k">Who it's for</div><h2>Marisol opens 30–80 invoices a day from people she has never met.</h2>
+<p>Accounts payable at a 40-person HVAC company in Salt Lake City. PDFs, phone scans, Word files, forwarded emails.</p>
+<p>Today: open them and hope, or retype from a preview and lose an hour.</p><div class="foot">Clean Room Intake</div></section>
+
+<section><div class="k">The product</div><h1>Open files from strangers without opening your business to them.</h1>
+<p>Every file is opened in a throwaway room on Vultr. Only the text comes back. The room is destroyed. A receipt stays.</p>
+<div class="foot">⟨demo URL⟩</div></section>
+
+<section class="dark"><div class="k">How it works · Track 1, pattern A</div>
+<table><tr><td>1 · write</td><td>Vultr Serverless Inference writes the extraction step for this kind of file</td></tr>
+<tr><td>2 · run</td><td>a fresh gVisor container on the Vultr VM runs it: no network, no secrets, read-only, capped</td></tr>
+<tr><td>3 · retry</td><td>error inside the room → back to the model, up to 2 more tries</td></tr>
+<tr><td>4 · read</td><td>the fields are read from the text, marked as untrusted data</td></tr>
+<tr><td>5 · check</td><td>vendor history: bank account and sender domain</td></tr>
+<tr><td>6 · destroy</td><td>container removed; receipt kept</td></tr></table><div class="foot">Clean Room Intake</div></section>
+
+<section><div class="k">The walls · measured on the VM</div>
+<table><tr><td>Kernel</td><td>gVisor runsc · ⟨dmesg⟩</td></tr><tr><td>Network</td><td>none · ⟨result⟩</td></tr>
+<tr><td>Secrets</td><td>0 variables in the room · ⟨result⟩</td></tr><tr><td>Filesystem</td><td>read-only, 64 MB tmpfs · ⟨result⟩</td></tr>
+<tr><td>Memory · pids · time</td><td>512 MB · 128 · 30 s · ⟨results⟩</td></tr><tr><td>Leftovers</td><td>⟨0 containers⟩</td></tr></table>
+<div class="src">deploy/containment_check.sh → docs/containment_check.txt</div><div class="foot">Clean Room Intake</div></section>
+
+<section class="dark"><div class="k">The containment moment · our own harmless test file</div>
+<h2>An HTML invoice tried to call home. Twice.</h2>
+<p class="x">✕ the page tried to load collect.attacker.example · no network</p>
+<p class="x">✕ … with the invoice title in the URL · no network</p>
+<p>Recorded by the renderer itself (Chromium's net log), inside the room. The clerk still got $418.20, due 12/01.</p>
+<div class="foot">Clean Room Intake</div></section>
+
+<section><div class="k">The check a scanner can't do</div><h2>Clean file. Wrong bank.</h2>
+<p><span class="hold">HOLD</span> · New bank account (Canyon State ****2208 → Summit Ridge ****9013), sent from granitepeak-refrig.example<b>.net</b>.</p>
+<p>Payment waits until the controller approves, after a call to a number already on file.</p><div class="foot">Clean Room Intake</div></section>
+
+<section><div class="k">Business value · next</div>
+<table><tr><td>Who pays</td><td>AP teams of 5–500 people; per seat</td></tr>
+<tr><td>Replaces</td><td>"open and hope", manual retyping, after-the-fact fraud recovery</td></tr>
+<tr><td>Next</td><td>mailbox connector · vendor history from QuickBooks / NetSuite · one VM per customer</td></tr>
+<tr><td>On Vultr</td><td>Cloud Compute VM · Docker + gVisor · Serverless Inference</td></tr></table>
+<div class="foot">⟨repo⟩ · ⟨demo URL⟩</div></section>
+</body></html>
