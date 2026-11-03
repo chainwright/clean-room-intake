@@ -76,7 +76,7 @@ class DevStep(unittest.TestCase):
         from app import devmode
         compile(devmode.STEP, "step.py", "exec")
         for name in os.listdir(os.path.join(ROOT, "demo", "inbox")):
-            if name.endswith((".pdf", ".docx", ".html")):
+            if name.endswith((".pdf", ".docx", ".html")) and not name.startswith("damaged_"):   # that one is meant to fail
                 with open(os.path.join(ROOT, "demo", "inbox", name), "rb") as f:
                     r = sandbox.run(f.read(), devmode.STEP, sandbox.Caps(seconds=20), cmd_for=local)
                 self.assertTrue(r.result and r.result["text"].strip(), (name, r.error))

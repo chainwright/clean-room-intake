@@ -279,6 +279,9 @@ def list_intakes():
                 {"vendor": (j["fields"] or {}).get("vendor"), "total": (j["fields"] or {}).get("total"),
                  "flagged": bool(j["flags"]), "blocked": any(t["receipt"]["attempts"] for t in j["tries"]),
                  "stopped": _stopped(j), "kind": j.get("kind", ""),
+                 "got_out": sum(1 for t in j["tries"] for a in t["receipt"]["attempts"]
+                                if a.get("what") == "browser" and a.get("detail", "").endswith("(none)"))
+                            + sum(1 for p in j.get("probes", []) if p.get("held") is False),
                  "held": sum(1 for p in j.get("probes", []) if p.get("held")), "probes": len(j.get("probes", []))}
                 for j in sorted(JOBS.values(), key=lambda j: -j["created"])]
 
@@ -299,6 +302,8 @@ def pay(jid: str):
         j = JOBS.get(jid)
         if not j:
             raise HTTPException(404)
+        if not j.get("done") or j.get("state") == "failed" or j.get("kind") == "breakin" or not j.get("fields"):
+            raise HTTPException(409, "Not ready: the file hasn't been read yet, or it couldn't be read.")
         if any(f.get("blocks") for f in j["flags"]) and not j["approved"]:
             raise HTTPException(409, "On hold: the controller has to approve the flags first.")
         j["paid"] = True

@@ -8,7 +8,7 @@ from app import flags  # noqa: E402
 
 class Flags(unittest.TestCase):
     def test_granite_peak_new_bank_and_lookalike_domain(self):
-        f = {"vendor": "Granite Peak Refrigerants", "bank": {"name": "Summit Ridge Bank (EXAMPLE)", "routing": "000098765", "account_last4": "9013"},
+        f = {"vendor": "Granite Peak Refrigerants", "invoice_no": "GPR-5561", "total": 1236.0, "bank": {"name": "Summit Ridge Bank (EXAMPLE)", "routing": "000098765", "account_last4": "9013"},
              "sender_email": "ar@granitepeak-refrig.example"}
         out = flags.check(f, sender="Kelsey <ar@granitepeak-refrig.example.net>")
         codes = [x["code"] for x in out]
@@ -21,15 +21,15 @@ class Flags(unittest.TestCase):
         self.assertTrue(all(x["blocks"] for x in out))
 
     def test_same_bank_same_domain_no_flags(self):
-        f = {"vendor": "Bonneville Sheet Metal Supply", "bank": {"routing": "000012345", "account_last4": "4471"},
+        f = {"vendor": "Bonneville Sheet Metal Supply", "invoice_no": "BSM-24117", "total": 736.81, "bank": {"routing": "000012345", "account_last4": "4471"},
              "sender_email": "billing@bonneville-sheetmetal.example"}
         self.assertEqual(flags.check(f), [])
 
     def test_unknown_vendor_no_guessing(self):
-        self.assertEqual(flags.check({"vendor": "Red Butte Electrical Contractors"}), [])
+        self.assertEqual(flags.check({"vendor": "Red Butte Electrical Contractors", "invoice_no": "RB-0932", "total": 450.9}), [])
 
     def test_missing_bank_on_invoice_is_not_a_change(self):
-        self.assertEqual(flags.check({"vendor": "Granite Peak Refrigerants", "bank": {}}), [])
+        self.assertEqual(flags.check({"vendor": "Granite Peak Refrigerants", "invoice_no": "GPR-5561", "total": 1236.0, "bank": {}}), [])
 
 
 if __name__ == "__main__":

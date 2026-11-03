@@ -126,6 +126,16 @@ def wasatch_valve():
         f.write(html)
 
 
+def damaged_copy():
+    """A damaged PDF (a real invoice cut off part-way, as a bad download would be): the model's first extraction step
+    usually fails in the room, the error goes back for up to two more tries, and the clerk is told to ask for a new
+    copy if none works. Shows the retry loop honestly; nothing about it is hostile."""
+    src = os.path.join(OUT, "bonneville_BSM-24117.pdf")
+    data = open(src, "rb").read()
+    with open(os.path.join(OUT, "damaged_BSM-24117_copy.pdf"), "wb") as f:
+        f.write(data[: int(len(data) * 0.12)])
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     bonneville()
@@ -133,6 +143,7 @@ def main():
     granite_peak()
     jordan_river()
     wasatch_valve()
+    damaged_copy()
     print("\n".join(sorted(os.listdir(OUT))))
 
 

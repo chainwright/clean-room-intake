@@ -207,3 +207,29 @@ class FailClosed(unittest.TestCase):
         self.assertEqual(web.flags.check({"vendor": "Bonneville Sheet Metal Supply", "invoice_no": "BSM-24117", "total": 736.81,
                                           "bank": {"routing": "000012345", "account_last4": "4471"}},
                                          text="BSM-24117 $736.81 routing 000012345 ****4471"), [])
+
+
+class PayGate(unittest.TestCase):
+    def setUp(self):
+        self.c = TestClient(web.app); web.JOBS.clear()
+
+    def job(self, **kw):
+        j = {"id": "j1", "file": "x.pdf", "done": True, "state": "extracted", "flags": [], "approved": False, "paid": False,
+             "fields": {"total": 1}, "tries": [], "kind": "pdf"}
+        j.update(kw); web.JOBS["j1"] = j
+
+    def test_cannot_pay_while_in_the_room_or_after_failure(self):
+        self.job(done=False, state="opening")
+        self.assertEqual(self.c.post("/api/intake/j1/pay").status_code, 409)
+        self.job(state="failed", fields={})
+        self.assertEqual(self.c.post("/api/intake/j1/pay").status_code, 409)
+        self.job(kind="breakin")
+        self.assertEqual(self.c.post("/api/intake/j1/pay").status_code, 409)
+        self.job()
+        self.assertEqual(self.c.post("/api/intake/j1/pay").status_code, 200)
+
+
+class Incomplete(unittest.TestCase):
+    def test_missing_amount_holds(self):
+        f = web.flags.check({"vendor": "Bonneville Sheet Metal Supply", "invoice_no": None, "total": None}, text="Bonneville Sheet Metal Supply")
+        self.assertEqual([x["code"] for x in f], ["incomplete"])

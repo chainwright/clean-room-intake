@@ -34,7 +34,7 @@ const distinct = (j) => [...new Set(attemptsOf(j).map(describe))];
 
 // ---------- sample inbox and upload ----------
 const label = (n) => ({ bonneville: "Bonneville", granite: "Granite Peak", jordan: "Jordan River (test)", red: "Red Butte (scan)",
-  wasatch: "Wasatch (test, HTML)" })[n.split("_")[0]] || n;
+  wasatch: "Wasatch (test, HTML)", damaged: "Damaged PDF" })[n.split("_")[0]] || n;
 async function loadSamples() {
   const names = (await api("/api/samples")).filter((n) => !(n.endsWith(".docx") && n.startsWith("granite")));  // the .eml carries it
   $("samples").innerHTML = names.map((n) => `<button data-s="${esc(n)}">${esc(label(n))}</button>`).join("·");
@@ -327,7 +327,7 @@ async function refreshQueue(flash) {
   $("queue").onclick = (e) => { const id = e.target.closest(".chip")?.dataset.id; if (id) follow(id, true); };
   const done = items.filter((i) => i.done), files = done.filter((i) => i.kind !== "breakin").length, c = $("count");
   const stopped = done.reduce((n, i) => n + (i.kind === "breakin" ? i.held : i.stopped), 0);
-  const got = done.reduce((n, i) => n + (i.kind === "breakin" ? i.probes - i.held : 0), 0);   // counted, never assumed
+  const got = done.reduce((n, i) => n + (i.got_out || 0), 0);   // measured: completed requests in the room's net log + failed walls
   c.textContent = done.length ? `${files} file${files === 1 ? "" : "s"} opened · ${stopped} attempt${stopped === 1 ? "" : "s"} stopped · ${got} got out` : "";
   if (flash) { c.classList.remove("flash"); void c.offsetWidth; c.classList.add("flash"); }
 }
