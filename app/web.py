@@ -123,7 +123,8 @@ def _work(job_id: str, name: str, data: bytes, sender: str):
             it = agent.run(name, data, llm=devmode.fake_llm, cmd_for=devmode.local_cmd, on_state=on_state)
         else:
             it = agent.run(name, data, on_state=on_state)
-        f = flags.check(it.fields, sender=sender or None, text=it.text, notes=it.flags)
+        f = flags.check(it.fields, sender=sender or None, text=it.text, notes=it.flags,
+                        attempts=[a for t in it.tries for a in t["receipt"]["attempts"]])
         ver = flags.verify(it.fields, it.text)
         ctl = [] if devmode.ON else control(name, [a for t in it.tries for a in t["receipt"]["attempts"]], data)
         with LOCK:

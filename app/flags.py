@@ -68,7 +68,8 @@ def verify(fields: dict, text: str) -> List[dict]:
     return rows
 
 
-def check(fields: dict, sender: Optional[str] = None, text: str = "", notes: Optional[List[str]] = None) -> List[dict]:
+def check(fields: dict, sender: Optional[str] = None, text: str = "", notes: Optional[List[str]] = None,
+          attempts: Optional[List[dict]] = None) -> List[dict]:
     """Returns flags: {"code", "text", "blocks": True}. Fails closed: a hold unless the payment details are known good.
     `sender` is the From address of the email that carried the file. `text` is what came out of the room: the bank
     check runs on it directly as well, so a document that talks the model into reporting the old account still holds."""
@@ -81,6 +82,10 @@ def check(fields: dict, sender: Optional[str] = None, text: str = "", notes: Opt
         if not row["found"]:
             out.append({"code": "not_in_text", "blocks": True, "field": row["field"], "value": row["value"],
                         "text": f"The model reported {row['field']} {row['value']}, but it isn't in the file's text."})
+    if attempts:
+        out.append({"code": "tried_out", "blocks": True,
+                    "text": f"While it was open, the file tried {len(attempts)} thing(s) a normal invoice never does "
+                            "(stopped by the room). A person should look at it before it is paid."})
     if any("instruction" in n.lower() for n in (notes or [])):
         out.append({"code": "hidden_instructions", "blocks": True,
                     "text": "The file carries hidden instructions aimed at software. A person should look at it before it is paid."})

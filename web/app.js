@@ -101,6 +101,11 @@ function beats(j) {
       const hid = (j.notes || []).find((n) => /instruction/i.test(n));
       if (hid) out.push({ kind: "state", note: "hidden instructions inside the file · read as data, not obeyed", at: s.at });
     }
+    if (s.state === "retry") {             // say WHY the last step failed: the error the room handed back
+      const prev = (j.tries || [])[room]?.receipt, why = prev?.error ? prev.error.split(":")[0] : prev ? "no readable text" : "";
+      out.push({ kind: "state", state: s.state, at: s.at, why });
+      continue;
+    }
     out.push({ kind: "state", state: s.state, at: s.at });
   }
   return out;
@@ -151,7 +156,8 @@ function render() {
     if (b.note2) { html += `<span class="t"></span><span class="m dim">${esc(b.note2)}</span>`; continue; }
     if (b.note) { html += `<span class="t"></span><span class="m n">✕ ${esc(b.note)}</span>`; continue; }
     const t = rel(b.at), msg = b.state === "blocked" ? `fields read · ${tried.length} attempt${tried.length === 1 ? "" : "s"} stopped`
-      : b.state === "writing_step" && j.model ? `${j.model} writes the extraction step · Vultr Serverless Inference` : (WORDS[b.state] || b.state);
+      : b.state === "writing_step" && j.model ? `${j.model} writes the extraction step · Vultr Serverless Inference`
+      : b.state === "retry" && b.why ? `step failed (${b.why}) · the error goes back, the model rewrites it` : (WORDS[b.state] || b.state);
     html += `<span class="t">${t === last ? "" : t}</span><span class="m">${esc(msg)}</span>`;
     last = t;
   }

@@ -40,7 +40,8 @@ for name in sorted(os.listdir(inbox)):
         name, data = part.get_filename(), part.get_content()
     states = []
     it = agent.run(name, data, llm=llm, on_state=lambda s: states.append(s))
-    f = flags.check(it.fields, sender=sender or None, text=it.text, notes=it.flags)   # the same checks as the app
+    f = flags.check(it.fields, sender=sender or None, text=it.text, notes=it.flags,
+                    attempts=[a for t in it.tries for a in t["receipt"]["attempts"]])   # the same checks as the app
     rec = it.tries[-1]["receipt"] if it.tries else {}
     row = {"file": name, "state": states[-2] if len(states) > 1 else it.state, "fields": it.fields, "flags": [x["code"] for x in f],
            "notes": it.flags, "tries": len(it.tries), "error": it.error or rec.get("error", ""),

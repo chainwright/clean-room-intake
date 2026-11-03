@@ -321,3 +321,11 @@ class OutputCap(unittest.TestCase):
         local = lambda room, work, caps: [sys.executable, "-I", os.path.join(work, "runner.py"), work]
         r = sandbox.run(b"hi", flood, sandbox.Caps(seconds=20), cmd_for=local)
         self.assertIn("output cut", r.error)
+
+
+class CalledOut(unittest.TestCase):
+    def test_a_file_that_tried_to_call_out_is_held(self):
+        f = web.flags.check({"vendor": "Wasatch Valve Supply", "invoice_no": "WVS-3310", "total": 418.2},
+                            text="Wasatch Valve Supply WVS-3310 $418.20",
+                            attempts=[{"what": "browser", "detail": "https://example.com/x (ERR_NAME_NOT_RESOLVED)"}])
+        self.assertIn("tried_out", [x["code"] for x in f])
