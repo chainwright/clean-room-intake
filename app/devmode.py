@@ -37,7 +37,7 @@ def extract(path):
     elif head.lstrip().lower().startswith((b"<!doc", b"<html")):
         raw = open(path, encoding="utf-8", errors="replace").read()
         raw = re.sub(r"(?is)<(script|style)[^>]*>.*?</\\1>", " ", raw)
-        text = re.sub(r"<[^>]+>", "\n", raw)
+        text = re.sub(r"<[^>]+>", "\\n", raw)
     else:
         text = "[scanned image: OCR runs in the room on the VM]"
     return {"text": text}

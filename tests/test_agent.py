@@ -69,3 +69,14 @@ class Loop(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DevStep(unittest.TestCase):
+    def test_dev_mode_step_compiles_and_reads_every_sample(self):
+        from app import devmode
+        compile(devmode.STEP, "step.py", "exec")
+        for name in os.listdir(os.path.join(ROOT, "demo", "inbox")):
+            if name.endswith((".pdf", ".docx", ".html")):
+                with open(os.path.join(ROOT, "demo", "inbox", name), "rb") as f:
+                    r = sandbox.run(f.read(), devmode.STEP, sandbox.Caps(seconds=20), cmd_for=local)
+                self.assertTrue(r.result and r.result["text"].strip(), (name, r.error))
