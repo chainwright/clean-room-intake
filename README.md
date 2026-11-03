@@ -9,7 +9,7 @@ destroyed afterwards. The clerk gets clean fields and a plain-text copy. The con
 file tried to do and what stopped it, plus the check that pays for itself: **the bank details on this invoice differ
 from the vendor's last one.**
 
-> Demo: https://149-248-46-73.sslip.io (Vultr Cloud Compute, Seattle; Caddy + Let's Encrypt in front) · Video: ⟨link⟩ · Track 1, Blast Radius Zero
+> Demo: https://149-248-46-73.sslip.io (Vultr Cloud Compute, Seattle; Caddy + Let's Encrypt in front) · Video: https://youtu.be/OtBGZHVIrkU · Track 1, Blast Radius Zero
 
 ## For judges: 60 seconds
 1. Open https://149-248-46-73.sslip.io. No login, nothing to upload: the sample inbox is on the page.
