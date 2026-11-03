@@ -304,3 +304,20 @@ class EmptyFields(unittest.TestCase):
     def test_text_but_no_fields_holds(self):
         f = web.flags.check({}, text="%%%% unreadable scraps")
         self.assertEqual([x["code"] for x in f], ["incomplete"])
+
+
+class AccountSpellings(unittest.TestCase):
+    def test_a_slash_c_new_account_holds(self):
+        txt = "Granite Peak Refrigerants INVOICE GPR-5561 TOTAL $1,236.00 routing 000067890 A/C 99887766"
+        f = web.flags.check({"vendor": "Granite Peak Refrigerants", "invoice_no": "GPR-5561", "total": 1236.0,
+                             "bank": {"routing": "000067890", "account_last4": "2208"}}, text=txt)
+        self.assertIn("bank_changed", [x["code"] for x in f])
+
+
+class OutputCap(unittest.TestCase):
+    def test_a_room_that_floods_its_output_is_cut_not_held_in_memory(self):
+        from app import sandbox
+        flood = "import sys\ndef extract(p):\n    sys.__stdout__.write('x' * (5 * 1024 * 1024))\n    sys.__stdout__.flush()\n    return {'text': 'ok'}\n"
+        local = lambda room, work, caps: [sys.executable, "-I", os.path.join(work, "runner.py"), work]
+        r = sandbox.run(b"hi", flood, sandbox.Caps(seconds=20), cmd_for=local)
+        self.assertIn("output cut", r.error)

@@ -31,7 +31,8 @@ def _domain(email: Optional[str]) -> str:
 
 ROUTING = re.compile(r"(?<!\d)(\d{9})(?!\d)")
 # account numbers as invoices print them: "****9013", "account ending 9013", "Acct #: 000123459013", "account 9013"
-ACCOUNT = re.compile(r"(?i)(?:\*{2,}\s*|x{2,}\s*|ending(?:\s+in)?\s+|acc(?:oun)?t\.?\s*(?:no\.?|number|#)?\s*:?\s*)(\d{4,17})\b")
+ACCOUNT = re.compile(r"(?i)(?:\*{2,}\s*|x{2,}\s*|ending(?:\s+in)?\s+|\ba/?c\b\.?\s*(?:no\.?|number|#)?\s*:?\s*|"
+                     r"acc(?:oun)?t\.?\s*(?:no\.?|number|#)?\s*:?\s*|iban\s*:?\s*[a-z]{2}\d{2}\w*?)(\d{4,17})\b")
 BANKISH = re.compile(r"(?i)\b(routing|aba|account\s*(no|number|#)?|acct|iban|swift|bic|wire|ach|bank)\b")
 
 

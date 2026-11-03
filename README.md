@@ -66,6 +66,9 @@ End to end on the VM with the real model (`docs/e2e_vultr.json`): all five sampl
 | Privileges | `--cap-drop=ALL`, `no-new-privileges`, user 65534 | `CapEff 0000000000000000`, uid 65534 |
 
 The receipt shows both sides: what the file tried (from inside), and which wall stopped it (from outside).
+The "tried" lines are recorded inside the room by the same process that runs the model's code, so they are evidence,
+not enforcement: code in the room could hide its own attempts, but it can't get through the walls, which Docker and
+gVisor enforce from outside. The room's output is read with a 2 MB cap, so it can't flood the orchestrator either.
 
 ## Run locally
 ```

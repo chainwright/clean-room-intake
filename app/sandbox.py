@@ -16,6 +16,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import threading
 import time
 import uuid
 from dataclasses import asdict, dataclass, field
@@ -23,6 +24,7 @@ from typing import List, Optional
 
 IMAGE = os.environ.get("CLEANROOM_IMAGE", "cleanroom-runner:1")
 RUNTIME = os.environ.get("CLEANROOM_RUNTIME", "runsc")
+MAX_OUT = 2 * 1024 * 1024        # the most the orchestrator will hold from one room's output
 RUNNER = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sandbox", "runner.py")
 
 
@@ -107,15 +109,32 @@ def run(file_bytes: bytes, step_code: str, caps: Caps = Caps(), cmd_for=docker_c
         for n in os.listdir(work):
             os.chmod(os.path.join(work, n), 0o444)
         r.started = time.time()
+        # the room's output is read with a cap: whatever it prints past MAX_OUT is drained and dropped, so code in the
+        # room can't flood the orchestrator's memory
+        proc = subprocess.Popen(cmd_for(room, work, caps), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        buf = bytearray()
+
+        def drain():
+            while True:
+                chunk = proc.stdout.read(65536)
+                if not chunk:
+                    return
+                if len(buf) < MAX_OUT:
+                    buf.extend(chunk[: MAX_OUT - len(buf)])
+        reader = threading.Thread(target=drain, daemon=True)
+        reader.start()
         try:
-            p = subprocess.run(cmd_for(room, work, caps), capture_output=True, text=True, timeout=caps.seconds)
-            r.exit_code = p.returncode
-            if p.returncode == 137:
+            proc.wait(timeout=caps.seconds)
+            r.exit_code = proc.returncode
+            if proc.returncode == 137:
                 r.killed_by = "memory"
-            parse_lines(p.stdout, r)
-        except subprocess.TimeoutExpired as e:
+        except subprocess.TimeoutExpired:
             r.killed_by = "timeout"
-            parse_lines((e.stdout or b"").decode(errors="replace") if isinstance(e.stdout, bytes) else (e.stdout or ""), r)
+            proc.kill()
+        reader.join(2)
+        if len(buf) >= MAX_OUT:
+            r.error = (r.error + " · " if r.error else "") + f"room output cut at {MAX_OUT // 1024} KB"
+        parse_lines(bytes(buf).decode(errors="replace"), r)
     finally:
         subprocess.run(["docker", "rm", "-f", room], capture_output=True) if cmd_for is docker_cmd else None
         shutil.rmtree(work, ignore_errors=True)
