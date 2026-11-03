@@ -328,8 +328,8 @@ async function refreshQueue(flash) {
   $("queue").innerHTML = latest.slice(0, 6).map((i) => {
     const playing = i.id === current && view && !view.filled;     // the page is still playing this one out: no verdict yet
     const word = !i.done || playing ? "in the room…" : i.kind === "breakin" ? `${i.held} of ${i.probes} stopped`
-      : i.flagged && !i.approved ? "HOLD" : i.stopped ? `${i.stopped} stopped` : i.paid ? "on the pay list" : "ready";
-    const cls = word === "HOLD" ? "held" : /stopped/.test(word) ? "stopped" : "";
+      : i.failed ? "couldn't read" : i.flagged && !i.approved ? "HOLD" : i.stopped ? `${i.stopped} stopped` : i.paid ? "on the pay list" : "ready";
+    const cls = word === "HOLD" || word === "couldn't read" ? "held" : /stopped/.test(word) ? "stopped" : "";
     if (i.kind === "breakin") return `<div class="chip ${i.id === current ? "on" : ""}" data-id="${i.id}"><span class="vn">Break-in test</span>&nbsp;·&nbsp;<span class="w ${cls}">${word}</span></div>`;
     return `<div class="chip ${i.id === current ? "on" : ""}" data-id="${i.id}"><span class="vn">${esc(i.vendor || label(i.file))}</span>` +
       `${i.total != null ? "&nbsp;·&nbsp;" + money(i.total) : ""}&nbsp;·&nbsp;<span class="w ${cls}">${word}</span></div>`;

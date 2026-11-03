@@ -295,6 +295,7 @@ def list_intakes(req: Request):
                 {"vendor": (j["fields"] or {}).get("vendor"), "total": (j["fields"] or {}).get("total"),
                  "flagged": bool(j["flags"]), "blocked": any(t["receipt"]["attempts"] for t in j["tries"]),
                  "stopped": _stopped(j), "kind": j.get("kind", ""),
+                 "failed": any(st["state"] == "failed" for st in j["states"]),
                  "got_out": sum(1 for t in j["tries"] for a in t["receipt"]["attempts"]
                                 if a.get("what") == "browser" and a.get("detail", "").endswith("(none)"))
                             + sum(1 for p in j.get("probes", []) if p.get("held") is False),
