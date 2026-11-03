@@ -44,6 +44,11 @@ class Receipt(unittest.TestCase):
         self.assertTrue(any(w.startswith("socket") for w in whats), whats)
         self.assertEqual(r.result["fields"]["vendor"], "Jordan River Plumbing Co.")
 
+    def test_ordinary_settings_reads_are_not_attempts(self):
+        step = "import os\ndef extract(p):\n    os.environ.get('LANG'); os.environ.get('PYMUPDF_MESSAGE')\n    return {'text': 'x'}\n"
+        r = sandbox.run(b"x", step, sandbox.Caps(seconds=10), cmd_for=local)
+        self.assertEqual(r.attempts, [])
+
     def test_timeout_is_killed_and_reported(self):
         r = sandbox.run(b"x", "def extract(p):\n    while True: pass\n", sandbox.Caps(seconds=2), cmd_for=local)
         self.assertEqual(r.killed_by, "timeout")

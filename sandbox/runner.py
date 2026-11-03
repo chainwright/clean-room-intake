@@ -12,6 +12,7 @@ The receipt shows both: what was tried (from here) and what stopped it (from the
 """
 import json
 import os
+import re
 import sys
 import time
 
@@ -44,15 +45,23 @@ def hook(event, args):
     emit(ev="attempt", what=event, detail=repr(args)[:200])
 
 
+SECRETY = re.compile(r"(?i)key|token|secret|passw|auth|cred|cookie|session|aws_|gcp_|azure_|vultr")
+
+
 class WatchedEnv(dict):
-    """os.environ stand-in: reading a variable is recorded (the sandbox has none worth stealing)."""
+    """os.environ stand-in. Libraries read ordinary settings all the time (PyMuPDF reads several); only a read of a
+    secret-looking name is an attempt worth a line. The sandbox has no such variables anyway."""
+
+    def _seen(self, k):
+        if SECRETY.search(str(k)):
+            emit(ev="attempt", what="getenv", detail=k)
 
     def __getitem__(self, k):
-        emit(ev="attempt", what="getenv", detail=k)
+        self._seen(k)
         return super().__getitem__(k)
 
     def get(self, k, default=None):
-        emit(ev="attempt", what="getenv", detail=k)
+        self._seen(k)
         return super().get(k, default)
 
 
