@@ -324,6 +324,8 @@ function renderSlip(j, reached, filled) {
     `<div class="f fill" style="animation-delay:${i * 80}ms"><span class="k">${k}</span><span class="v ${c === "amt" ? "amt" : ""}">${c === "raw" ? v : esc(v)}</span></div>`).join("");
   const ver = !filled || !(j.verify || []).length ? "" : `<div class="ver">checked against the file's own text, not the model's answer: ` +
     j.verify.map((v) => `<span class="${v.found ? "ok" : "no"}">${esc(v.field)} ${v.found ? "✓" : "✕ not in the file"}</span>`).join(" · ") + `</div>`;
+  // Pattern A's last step: the model explains what happened, from our facts only; shown as its note, it can't change a hold
+  const expl = !filled || !j.explanation ? "" : `<div class="expl"><span class="ek">Model's note · Vultr Serverless Inference · can't change a hold</span>${esc(j.explanation)}</div>`;
   const notes = !filled ? "" : (j.notes || []).map((n) => {
     const q = /“([^”]+)”/.exec(n);                     // the hidden text itself, quoted, so nobody has to take our word for it
     return `<div class="note">${esc(n.replace(/\s*“[^”]+”/, ""))}${q ? `<div class="quote">${esc(q[1])}</div>` : ""}</div>`;
@@ -334,7 +336,7 @@ function renderSlip(j, reached, filled) {
   const sub = j.sender ? `From <span class="dom">${esc((/<([^>]+)>/.exec(j.sender) || [, j.sender])[1])}</span> · <span class="fn">${esc(j.file)}</span>`
     : `<span class="fn">${esc(j.file)}</span>${/TESTFILE/.test(j.file) ? " · our test file" : ""}`;
   el.innerHTML = stamp + `<h2>${esc(filled ? (f.vendor || "Unknown vendor") : "In the room…")}</h2><div class="sub">${sub}</div>` +
-    `<div class="marks">${marks}</div>${top}${held && filled ? btn : ""}${fields}${ver}${filled && j.error ? `<div class="tried">${esc(j.error)}</div>` : ""}${notes}${held && filled ? "" : btn}`;
+    `<div class="marks">${marks}</div>${top}${held && filled ? btn : ""}${fields}${ver}${expl}${filled && j.error ? `<div class="tried">${esc(j.error)}</div>` : ""}${notes}${held && filled ? "" : btn}`;
   const p = $("pay"); if (p) p.onclick = async () => { await api(`/api/intake/${j.id}/pay`, { method: "POST" }).catch((e) => alert(e.message)); reload(j.id); };
   const a = $("appr"); if (a) a.onclick = async () => { await api(`/api/intake/${j.id}/approve`, { method: "POST" }); reload(j.id); };
 }

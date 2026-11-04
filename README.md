@@ -32,7 +32,7 @@ Report, p. 8). A changed bank account on an otherwise normal invoice is one of t
 Clean Room Intake removes the choice:
 1. Marisol drops a file, or forwards the email.
 2. A fresh sandbox opens it on the other side of the glass; she watches it happen.
-3. She gets the vendor, invoice number, amount, due date and bank details as plain text, each with the page it came from.
+3. She gets the vendor, invoice number, amount, due date and bank details as plain text, each checked against the file's own text.
 4. The sandbox is destroyed. The receipt stays (in the app's memory for the demo; a restart clears it).
 5. **Send to pay list** is held until the controller approves whenever the bank details changed, the email came from
    a look-alike domain, the pay-to address changed (or there's none on file to compare with), the vendor asks to be paid

@@ -6,7 +6,6 @@ a{color:inherit}
 .hero{position:relative;height:100vh;min-height:680px;overflow:hidden;background:#aeb9b4}
 .scene{position:absolute;left:0;top:0;width:2752px;height:1536px;transform-origin:0 0}
 body:not(.ready) .bag,body:not(.ready) .next{opacity:0}
-.bag{transition:opacity .5s}
 .scene .counter{position:absolute;left:0;top:0;width:2752px;height:1536px}
 .bag{position:absolute;left:0;top:0;width:2752px;height:1536px;transform-origin:2050px 760px;cursor:grab;touch-action:none}
 .bag .cut{position:absolute;left:1100px;top:0;width:1652px;height:1536px;user-select:none;-webkit-user-drag:none;pointer-events:none}

@@ -27,7 +27,7 @@ addEventListener("resize", fit); fit();
 // lines on the label: the money fact first
 const LINES = [
   ["l0", "bank changed → ****9013", true],
-  ["l1", "tried pay-update.example → refused", true],
+  ["l1", "sender look-alike: …refrig.example.net", true],
   ["l2", "Granite Peak · $1,236.00 · Nov 14", false],
   ["l3", "opened in a gVisor room on Vultr", false],
 ];
@@ -112,9 +112,12 @@ addEventListener("pointerup", () => { if (y0 != null) { y0 = null; bag.style.tra
 document.fonts.ready.then(() => document.body.classList.add("fonts"));
 // start only when the fonts, the photos and the peel clip are all here (a cold judge on a slow link sees a still
 // poster that fades in, never a bag popping in halfway through the story)
-const imgs = [...document.querySelectorAll("#scene img")].map((im) => (im.decode ? im.decode() : Promise.resolve()).catch(() => {}));
+// a light poster (the sealed bag on the counter) shows at once; the counter alone replaces it when the layers are in
+const fullCounter = new Image(); fullCounter.src = $("counter").dataset.full;
+const imgs = [fullCounter, ...document.querySelectorAll("#scene img.cut")].map((im) => (im.decode ? im.decode() : Promise.resolve()).catch(() => {}));
 const clip = new Promise((r) => { const v = $("peel"); if (v.readyState >= 3) r(); else { v.addEventListener("canplaythrough", r, { once: true }); setTimeout(r, 8000); } });
 Promise.all([document.fonts.ready, ...imgs, clip]).then(() => {
+  $("counter").src = fullCounter.src;
   document.body.classList.add("ready");
   setTimeout(() => { if (!played) $("hint").style.opacity = 1; }, 300);
   setTimeout(() => { if (!played) play(); }, reduce ? 0 : 1100);

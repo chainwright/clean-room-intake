@@ -83,3 +83,5 @@ header .count{grid-column:2;font:15px 'Fragment Mono',monospace;color:var(--ink)
 .stub .err{color:var(--red);font:12px 'Fragment Mono',monospace}
 .inside{display:flex;gap:18px;align-items:center;background:#0E1A24;color:#E8ECEB;font:14px 'Fragment Mono',monospace;padding:10px 24px;border-bottom:1px solid #ffffff22}
 .inside a{color:#fff;text-decoration:none;border:1px solid #ffffff55;padding:4px 10px;border-radius:4px}
+.expl{margin:14px 0 4px;padding:12px 14px;border-left:3px solid var(--ink);background:#E9EEEC;font-size:15px;line-height:1.5}
+.expl .ek{display:block;font:12px 'Fragment Mono',monospace;color:var(--muted);margin-bottom:4px}

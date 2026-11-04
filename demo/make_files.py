@@ -63,7 +63,7 @@ def granite_peak():
     doc = Document()
     doc.add_heading("Granite Peak Refrigerants", 1)
     doc.add_paragraph("ar@granitepeak-refrig.example")
-    doc.add_paragraph("INVOICE GPR-5561     Date 10/30/2026     Due 11/14/2026")
+    doc.add_paragraph("INVOICE GPR-5561     Date 11/01/2026     Due 11/14/2026")
     doc.add_paragraph("R-454B refrigerant, 25 lb cylinder  x 3  @ $412.00   =  $1,236.00")
     doc.add_paragraph("TOTAL DUE $1,236.00")
     doc.add_paragraph("NEW BANK DETAILS: Summit Ridge Bank (EXAMPLE), routing 000098765, account ****9013")
