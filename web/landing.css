@@ -5,6 +5,8 @@ a{color:inherit}
 /* hero: a still counter, a bag that moves on it, text on the empty part of the counter */
 .hero{position:relative;height:100vh;min-height:680px;overflow:hidden;background:#aeb9b4}
 .scene{position:absolute;left:0;top:0;width:2752px;height:1536px;transform-origin:0 0}
+body:not(.ready) .bag,body:not(.ready) .next{opacity:0}
+.bag{transition:opacity .5s}
 .scene .counter{position:absolute;left:0;top:0;width:2752px;height:1536px}
 .bag{position:absolute;left:0;top:0;width:2752px;height:1536px;transform-origin:2050px 760px;cursor:grab;touch-action:none}
 .bag .cut{position:absolute;left:1100px;top:0;width:1652px;height:1536px;user-select:none;-webkit-user-drag:none;pointer-events:none}
@@ -32,7 +34,7 @@ nav.top{position:absolute;left:5vw;right:5vw;top:26px;display:flex;align-items:c
 nav.top b{font-weight:700;font-size:22px;margin-right:auto;letter-spacing:-.01em}
 .inside-btn{pointer-events:auto;background:var(--ink);color:#fff;text-decoration:none;padding:12px 20px;border-radius:var(--r);font-weight:600}
 .copy{position:absolute;left:5vw;top:15vh;width:31vw;z-index:2}
-body:not(.ready) .copy,body:not(.ready) nav.top{visibility:hidden}
+body:not(.fonts) .copy,body:not(.fonts) nav.top{visibility:hidden}
 h1{font-size:clamp(52px,5.2vw,112px);line-height:.95;letter-spacing:-.035em;font-weight:700;margin:0 0 3vh}
 h1 span{color:var(--red)}
 .sub{font-size:clamp(18px,1.35vw,25px);line-height:1.45;color:#25333f;max-width:34ch;margin:0 0 4vh}

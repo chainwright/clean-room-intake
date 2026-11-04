@@ -22,7 +22,7 @@ const LINES = [
   ["l0", "bank changed → ****9013", true],
   ["l1", "tried pay-update.example → refused", true],
   ["l2", "Granite Peak · $1,236.00 · Nov 14", false],
-  ["l3", "room CR-0412 · Vultr · gVisor", false],
+  ["l3", "opened in a gVisor room on Vultr", false],
 ];
 async function type(el, text) {
   if (reduce) { el.textContent = text; return; }
@@ -102,8 +102,16 @@ bag.addEventListener("pointermove", (e) => {
   if (dy <= -30) { y0 = null; bag.style.transform = ""; play(); }
 });
 addEventListener("pointerup", () => { if (y0 != null) { y0 = null; bag.style.transform = ""; } });
-setTimeout(() => { if (!played) $("hint").style.opacity = 1; }, reduce ? 0 : 200);
-document.fonts.ready.then(() => { document.body.classList.add("ready"); setTimeout(() => { if (!played) play(); }, reduce ? 0 : 700); });
+document.fonts.ready.then(() => document.body.classList.add("fonts"));
+// start only when the fonts, the photos and the peel clip are all here (a cold judge on a slow link sees a still
+// poster that fades in, never a bag popping in halfway through the story)
+const imgs = [...document.querySelectorAll("#scene img")].map((im) => (im.decode ? im.decode() : Promise.resolve()).catch(() => {}));
+const clip = new Promise((r) => { const v = $("peel"); if (v.readyState >= 3) r(); else { v.addEventListener("canplaythrough", r, { once: true }); setTimeout(r, 8000); } });
+Promise.all([document.fonts.ready, ...imgs, clip]).then(() => {
+  document.body.classList.add("ready");
+  setTimeout(() => { if (!played) $("hint").style.opacity = 1; }, 300);
+  setTimeout(() => { if (!played) play(); }, reduce ? 0 : 1100);
+});
 
 // outside → inside: the dark room panel slides in from the right, and the label of the file we just watched (Granite
 // Peak) moves to where the app shows it, so the same file crosses the wall with us; the app opens on that file
