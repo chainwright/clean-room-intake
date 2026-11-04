@@ -9,6 +9,13 @@ const scene = $("scene"), bag = $("bag"), next = $("next");
 let K = 1, OX = 0, OY = 0;
 
 function fit() {
+  if (innerWidth < 900) {                       // phone: the bag on top, full width; the text below it
+    K = innerWidth / 1620; OX = -1120 * K; OY = 46;
+    scene.style.transform = `translate(${OX}px,${OY}px) scale(${K})`;
+    $("hero").style.setProperty("--bagh", `${1536 * K + 46}px`);
+    $("hint").style.display = "none";
+    return;
+  }
   const vw = innerWidth, vh = Math.max(innerHeight, 680);
   K = Math.max(vh / H, (vw * 0.6) / (W * 0.52));
   OX = Math.min(0, vw * 0.755 - W * 0.745 * K); OY = Math.min(0, (vh - H * K) / 2 + vh * 0.03);

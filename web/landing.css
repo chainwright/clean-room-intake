@@ -68,5 +68,15 @@ section:not(.hero){padding:12vh 5vw}
 .proof span{display:block;margin-top:12px;font-size:17px;color:#aeb8b5;line-height:1.45;max-width:40ch}
 .vultr p{font-size:22px;line-height:1.55;max-width:70ch;margin:0 0 28px}
 .vultr .foot{font:13px 'Fragment Mono',monospace;color:var(--muted);margin-top:8vh}
-@media (max-width:900px){.copy{width:88vw;top:auto;bottom:4vh}.how,.tries,.proof{grid-template-columns:1fr}.label{width:88vw}}
+@media (max-width:900px){
+  .hero{height:auto;min-height:0;padding-top:var(--bagh,420px)}
+  nav.top{top:12px}nav.top b{font-size:17px}.inside-btn{font-size:14px;padding:9px 12px}
+  .copy{position:relative;left:auto;top:auto;width:auto;padding:22px 6vw 10px;background:#aeb9b4}
+  h1{font-size:46px}.sub{font-size:17px}.b1,.b2{font-size:16px;padding:13px 18px}
+  .label{position:relative;left:auto;bottom:auto;width:auto;margin:6px 6vw 28px;font-size:12px;line-height:28px;padding-right:110px}
+  .stamp{top:10px;right:10px}.stamp b{font-size:18px}
+  .replay{top:auto;bottom:10px}
+  .behind{width:100%}
+  .how,.tries,.proof{grid-template-columns:1fr}
+}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
