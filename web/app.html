@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clean Room Intake: open invoices from strangers safely</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&family=Fragment+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="inside"><a href="/">← back outside</a><span>You're inside the clean room: what really happens to each file, step by step. Nothing here is mocked; the companies are fictional.</span></div>
+<header>
+  <div><b>Clean Room Intake</b><span class="tag">Open files from strangers without opening your business to them.</span></div>
+  <nav><a href="#desk" id="nav-desk" class="on">Clerk desk</a><a href="#receipts" id="nav-receipts">Controller receipts</a></nav>
+  <div class="who">For accounts payable: invoices from people you've never met are opened in a throwaway room on Vultr. Only the text comes back.</div>
+  <div class="count" id="count"></div>
+</header>
+
+<div class="wrap" id="view-desk">
+  <section class="desk">
+    <div class="label">Your desk · safe copy here</div>
+    <div class="drop" id="drop">Drop an invoice here (it's opened in the room on the right, never on this computer), or try:<span id="samples"></span>
+      <span class="bi">or <button id="breakin" type="button">try to break the room</button> (our own attack script, the same walls)</span>
+      <input type="file" id="file" hidden></div>
+    <div class="queue" id="queue"></div>
+    <div id="slip" class="empty">Pick a file. Its fields come back through the drawer as text.</div>
+  </section>
+  <section class="room">
+    <div class="glass"></div><div id="pins"></div>
+    <div class="drawer" id="drawer">⇦ only text</div>
+    <div class="label">The room · gVisor sandbox on Vultr</div>
+    <div class="test" id="test"></div>
+    <div class="log" id="log"><span class="t"></span><span class="m dim">The room is empty. Every file gets a fresh one, and it's destroyed afterwards.</span></div>
+    <div id="stub"></div>
+  </section>
+</div>
+
+<div id="view-receipts" class="desk" hidden>
+  <div class="label">Controller · receipt stubs</div>
+  <div class="stubs" id="stubs"></div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

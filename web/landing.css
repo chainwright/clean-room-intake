@@ -1,0 +1,70 @@
+:root{--ink:#0E1A24;--red:#D9301F;--red2:#C2412D;--muted:#4C5A66;--paper:#F3F5F4;--r:4px}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:'Familjen Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+/* hero: a still counter, a bag that moves on it, text on the empty part of the counter */
+.hero{position:relative;height:100vh;min-height:680px;overflow:hidden;background:#aeb9b4}
+.scene{position:absolute;left:0;top:0;width:2752px;height:1536px;transform-origin:0 0}
+.scene .counter{position:absolute;left:0;top:0;width:2752px;height:1536px}
+.bag{position:absolute;left:0;top:0;width:2752px;height:1536px;transform-origin:2050px 760px;cursor:grab;touch-action:none}
+.bag .cut{position:absolute;left:1100px;top:0;width:1652px;height:1536px;user-select:none;-webkit-user-drag:none;pointer-events:none}
+.bag .shadow{display:none}
+.peel{position:absolute;left:0;top:0;width:2752px;height:1536px;opacity:0;pointer-events:none}
+.ink{position:absolute;left:1566px;top:930px;width:820px;transform:rotate(6.3deg);transform-origin:0 0;font:30px/54px 'Fragment Mono',monospace;color:#1c2630;mix-blend-mode:multiply;pointer-events:none}
+.ink .ln{height:54px;white-space:nowrap;overflow:hidden}.ink .red{color:var(--red2)}
+.ink .ln:nth-child(2){transform:translateY(.6px) rotate(.12deg)}.ink .ln:nth-child(3){transform:translateY(-.5px)}
+.destroyed{position:absolute;left:1700px;top:150px;font:700 64px 'Fragment Mono',monospace;color:#2a3540;border:7px solid #2a3540;padding:10px 26px;transform:rotate(-9deg) scale(1.4);opacity:0;mix-blend-mode:multiply;letter-spacing:.06em}
+.next{transform:translate(0,-1700px)}
+.nextnote{opacity:.85}
+/* the torn label: the only thing that leaves the room */
+.label{position:absolute;left:5vw;bottom:3vh;width:600px;background:#f6f6f3;padding:14px 22px 16px;font:15px/28px 'Fragment Mono',monospace;color:#1c2630;opacity:0;z-index:3;transform-origin:0 0;
+  box-shadow:0 1px 1px #0e1a2433,0 14px 30px #0e1a2424;
+  background-image:repeating-linear-gradient(transparent 0 22px,#b8bdbd 22px 23px,transparent 23px 28px);background-position:0 14px}
+.label .perf{position:absolute;left:0;right:0;top:-6px;height:12px;background:radial-gradient(circle at 6px 0,transparent 4px,#f6f6f3 4.5px) 0 6px/12px 12px repeat-x}
+.label .lines div{white-space:nowrap}.label .red{color:var(--red2)}
+.stamp{position:absolute;right:20px;top:18px;border:3px solid var(--red2);color:var(--red2);padding:4px 10px 3px;font:700 20px 'Fragment Mono',monospace;line-height:1.1;text-align:center;transform:rotate(-7deg) scale(1.6);opacity:0;mix-blend-mode:multiply;
+  -webkit-mask-image:radial-gradient(circle at 30% 40%,#000 55%,#000c 70%,#0008 100%);mask-image:radial-gradient(circle at 30% 40%,#000 55%,#000c 70%,#0008 100%)}
+.stamp b{display:block;font-size:24px;letter-spacing:.08em}.stamp span{font-size:12px;font-weight:400}
+.hint{position:absolute;z-index:2;font:500 16px 'Familjen Grotesk',system-ui,sans-serif;color:#1d2a35;opacity:0;transition:opacity .4s;pointer-events:none}
+.hint:after{content:" →";font-family:'Fragment Mono',monospace}
+/* text on the counter */
+nav.top{position:absolute;left:5vw;right:5vw;top:26px;display:flex;align-items:center;font-size:19px;z-index:4;pointer-events:none}
+nav.top b{font-weight:700;font-size:22px;margin-right:auto;letter-spacing:-.01em}
+.inside-btn{pointer-events:auto;background:var(--ink);color:#fff;text-decoration:none;padding:12px 20px;border-radius:var(--r);font-weight:600}
+.copy{position:absolute;left:5vw;top:15vh;width:31vw;z-index:2}
+body:not(.ready) .copy,body:not(.ready) nav.top{visibility:hidden}
+h1{font-size:clamp(52px,5.2vw,112px);line-height:.95;letter-spacing:-.035em;font-weight:700;margin:0 0 3vh}
+h1 span{color:var(--red)}
+.sub{font-size:clamp(18px,1.35vw,25px);line-height:1.45;color:#25333f;max-width:34ch;margin:0 0 4vh}
+.btns{display:flex;gap:12px;flex-wrap:wrap}
+.b1,.b2{text-decoration:none;padding:16px 24px;border-radius:var(--r);font-weight:600;font-size:19px}
+.b1{background:var(--ink);color:#fff}.b2{border:1.5px solid var(--ink)}
+.live{font:13px 'Fragment Mono',monospace;color:#33414d;margin-top:4vh;max-width:46ch;line-height:1.6;opacity:0;transition:opacity .5s}
+.live.on{opacity:1}
+.replay{position:absolute;right:5vw;top:82px;z-index:3;background:transparent;border:1px solid #0e1a2455;border-radius:var(--r);padding:8px 14px;font:14px 'Fragment Mono',monospace;cursor:pointer;opacity:0}
+/* inside: the dark interior opens up from the bag */
+.behind{position:absolute;top:0;bottom:0;right:0;width:38%;background:var(--ink);color:#E8ECEB;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;font:17px/1.5 'Fragment Mono',monospace;text-align:center;padding:0 6%;opacity:0;z-index:6;pointer-events:none}
+.voidband{width:86%;height:34px;background:var(--red);position:relative}
+.voidband:after{content:"VOID    VOID    VOID    VOID";position:absolute;inset:0;color:#fff;font:15px/34px 'Fragment Mono',monospace;letter-spacing:.2em;text-align:center;white-space:pre}
+/* the rest of the page */
+section:not(.hero){padding:12vh 5vw}
+.pain{max-width:1100px}.pain .big{font-size:clamp(36px,4vw,64px);line-height:1.05;letter-spacing:-.025em;margin:0 0 24px;font-weight:600}
+.pain p{font-size:22px;line-height:1.5;max-width:60ch}
+.how{display:grid;grid-template-columns:repeat(3,1fr);gap:4vw;border-top:1px solid #d5dbd8}
+.crop{height:260px;border-radius:var(--r);margin-bottom:22px;box-shadow:inset 0 0 0 1px #0e1a2418;background-size:cover;background-position:center}
+.c1{background-image:url(assets/crop_sealed.jpg)}.c2{background-image:url(assets/crop_void.jpg)}.c3{background-image:url(assets/crop_label.jpg)}
+.step h3{font-size:30px;margin:0 0 10px;letter-spacing:-.01em}.step p{font-size:19px;line-height:1.5;color:#2c3a46}
+.try h2{font-size:40px;letter-spacing:-.02em;margin:0 0 28px}
+.tries{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.tries a{display:block;text-decoration:none;background:#fff;padding:26px;border:1px solid #d5dbd8;border-radius:var(--r);transition:transform .2s}
+.tries a:hover{transform:translateY(-4px)}
+.tries b{display:block;font-size:22px;margin-bottom:10px}.tries span{color:var(--muted);font-size:17px;line-height:1.45}
+.tries span:before{content:"→ "}
+.proof{display:grid;grid-template-columns:2fr 1fr 1fr;gap:4vw;background:var(--ink);color:#E8ECEB;align-items:end}
+.proof b{display:block;font:600 clamp(48px,6vw,120px) 'Fragment Mono',monospace;font-variant-numeric:tabular-nums;letter-spacing:-.04em;line-height:1}
+.proof .p1 b{font-size:clamp(90px,12vw,220px)}
+.proof span{display:block;margin-top:12px;font-size:17px;color:#aeb8b5;line-height:1.45;max-width:40ch}
+.vultr p{font-size:22px;line-height:1.55;max-width:70ch;margin:0 0 28px}
+.vultr .foot{font:13px 'Fragment Mono',monospace;color:var(--muted);margin-top:8vh}
+@media (max-width:900px){.copy{width:88vw;top:auto;bottom:4vh}.how,.tries,.proof{grid-template-columns:1fr}.label{width:88vw}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}

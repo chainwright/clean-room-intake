@@ -3,43 +3,79 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Clean Room Intake: open invoices from strangers safely</title>
+<title>Clean Room Intake: strangers' invoices stay sealed</title>
+<meta name="description" content="Every invoice from a stranger is opened in a sealed, throwaway room on Vultr. Only text comes out, and the payment waits when the bank details changed.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<link href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&family=Fragment+Mono&display=swap" rel="stylesheet">
+<link rel="preload" as="image" href="assets/counter.jpg">
+<link rel="preload" as="image" href="assets/bag_sealed.webp">
+<link rel="prefetch" href="app.html">
+<link rel="stylesheet" href="landing.css">
 </head>
 <body>
-<header>
-  <div><b>Clean Room Intake</b><span class="tag">Open files from strangers without opening your business to them.</span></div>
-  <nav><a href="#desk" id="nav-desk" class="on">Clerk desk</a><a href="#receipts" id="nav-receipts">Controller receipts</a></nav>
-  <div class="who">For accounts payable: invoices from people you've never met are opened in a throwaway room on Vultr. Only the text comes back.</div>
-  <div class="count" id="count"></div>
-</header>
+<section class="hero" id="hero">
+  <div class="scene" id="scene">
+    <img class="counter" src="assets/counter.jpg" alt="">
+    <div class="bag" id="bag">
+      <div class="shadow"></div>
+      <img class="cut" id="bagSealed" src="assets/bag_sealed.webp" alt="An invoice from Granite Peak Refrigerants sealed in a clear tamper-evident bag. Its bank details are new.">
+      <img class="cut" id="bagVoid" src="assets/bag_void.webp" alt="" style="opacity:0">
+      <img class="cut" id="bagNolabel" src="assets/bag_nolabel.webp" alt="" style="opacity:0">
+      <video class="peel" id="peel" style="-webkit-mask-image:url(assets/peel_mask.png);mask-image:url(assets/peel_mask.png);-webkit-mask-size:100% 100%;mask-size:100% 100%" src="assets/peel.mp4" muted playsinline preload="auto"></video>
+      <div class="ink" id="ink"><div class="ln red" id="l0"></div><div class="ln red" id="l1"></div><div class="ln" id="l2"></div><div class="ln" id="l3"></div></div>
+      <div class="destroyed" id="destroyed">ROOM DESTROYED <span id="dtime"></span></div>
+    </div>
+    <div class="bag next" id="next">
+      <div class="shadow"></div>
+      <img class="cut" src="assets/bag_next.webp" alt="">
+      <div class="ink nextnote"><div class="ln">next file · a fresh sealed room</div></div>
+    </div>
+  </div>
+  <div class="label" id="label"><div class="perf"></div><div class="lines" id="labelLines"></div><div class="stamp" id="stamp"><b>HOLD</b><span>call the vendor</span></div></div>
 
-<div class="wrap" id="view-desk">
-  <section class="desk">
-    <div class="label">Your desk · safe copy here</div>
-    <div class="drop" id="drop">Drop an invoice here (it's opened in the room on the right, never on this computer), or try:<span id="samples"></span>
-      <span class="bi">or <button id="breakin" type="button">try to break the room</button> (our own attack script, the same walls)</span>
-      <input type="file" id="file" hidden></div>
-    <div class="queue" id="queue"></div>
-    <div id="slip" class="empty">Pick a file. Its fields come back through the drawer as text.</div>
-  </section>
-  <section class="room">
-    <div class="glass"></div><div id="pins"></div>
-    <div class="drawer" id="drawer">⇦ only text</div>
-    <div class="label">The room · gVisor sandbox on Vultr</div>
-    <div class="test" id="test"></div>
-    <div class="log" id="log"><span class="t"></span><span class="m dim">The room is empty. Every file gets a fresh one, and it's destroyed afterwards.</span></div>
-    <div id="stub"></div>
-  </section>
-</div>
+  <nav class="top"><b>Clean Room Intake</b><a class="inside-btn" href="app.html?run=granite" id="inside">Look inside the clean room →</a></nav>
+  <div class="copy" id="copy">
+    <h1>Strangers' invoices stay <span>sealed</span>.</h1>
+    <p class="sub">Every file from someone you've never met is opened in a sealed, throwaway room on Vultr. Only typed text comes out, and the payment waits when the bank details changed.</p>
+    <div class="btns"><a class="b1" href="app.html?run=granite">Try the live demo</a><a class="b2" href="https://youtu.be/OtBGZHVIrkU">Watch it, 3 min</a></div>
+    <p class="live" id="live">Live on Vultr · nothing mocked · the companies are fictional, the walls are real</p>
+  </div>
+  <div class="hint" id="hint">try to take the invoice out</div>
+  <button class="replay" id="replay" type="button">replay</button>
+  <div class="behind" id="behind"><div class="voidband"></div><p>Inside the clean room · what really happened to this file</p></div>
+</section>
 
-<div id="view-receipts" class="desk" hidden>
-  <div class="label">Controller · receipt stubs</div>
-  <div class="stubs" id="stubs"></div>
-</div>
+<section class="pain">
+  <p class="big">“We moved banks. Please pay the new account.”</p>
+  <p>Emails like that cost US businesses <b>$3.05 billion</b> in 2025 (FBI IC3). The person who can stop it is the clerk who opens the invoice. Today she opens it on her own computer and hopes.</p>
+</section>
 
-<script src="app.js"></script>
+<section class="how">
+  <div class="step"><div class="crop c1"></div><h3>Sealed</h3><p>The file is opened in a fresh room on Vultr: gVisor, no network, no secrets, read-only, 512 MB, 30 seconds. Then the room is destroyed.</p></div>
+  <div class="step"><div class="crop c2"></div><h3>Anything that tries, leaves a mark</h3><p>The room measures the file. An agent on Vultr Serverless Inference writes the code that reads it, and rewrites it if it fails. What the file tried is on the receipt.</p></div>
+  <div class="step"><div class="crop c3"></div><h3>Only text comes out</h3><p>Every field is checked against the file's own text. A new bank, a new pay method, a look-alike sender or a file that tried something holds the payment.</p></div>
+</section>
+
+<section class="try">
+  <h2>See it catch something. No upload, no login.</h2>
+  <div class="tries">
+    <a href="app.html?run=granite"><b>A clean invoice with a new bank</b><span>held, with the old and new account side by side</span></a>
+    <a href="app.html?run=wasatch"><b>A file that tries to call home</b><span>both requests stopped inside the room, while the same addresses answer from outside</span></a>
+    <a href="app.html?run=breakin"><b>Attack the room yourself</b><span>our attack script, 11 ways out, in fresh rooms with the same walls</span></a>
+  </div>
+</section>
+
+<section class="proof">
+  <div class="p1"><b>0</b><span>of 11 attacks got out of the room. A plain container with the same walls let 1 through; with the walls down, 6.</span></div>
+  <div class="lv" hidden><b id="n-rooms"></b><span>rooms opened and destroyed on this server</span></div>
+  <div class="lv" hidden><b id="n-stopped"></b><span>things files tried while open, all stopped</span></div>
+</section>
+
+<section class="vultr">
+  <p>Built on Vultr: the orchestrator on a Vultr Cloud Compute VM, every file in a gVisor room on that VM, every model call on Vultr Serverless Inference. Scanners guess whether a file looks clean. This opens it where it can't hurt you, shows what it tried, and checks the money against what was really in it.</p>
+  <div class="btns"><a class="b1" href="app.html?run=granite">Try the live demo</a><a class="b2" href="https://github.com/chainwright/clean-room-intake">Code on GitHub</a><a class="b2" href="https://youtu.be/OtBGZHVIrkU">Video</a></div>
+  <p class="foot">Vultr Agent Rush 2026 · Track 1, Blast Radius Zero · every company, person and file in the demo is fictional</p>
+</section>
+<script src="landing.js"></script>
 </body>
 </html>

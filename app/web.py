@@ -325,6 +325,25 @@ def _stopped(j) -> int:
     return len(seen)
 
 
+STARTED = time.time()
+
+
+@app.get("/api/stats")
+def stats():
+    """Public, across all visitors, no file names or fields: how many rooms ran since the server started, how many
+    things the files tried, how many got out, and the latest room's id and time (for the landing page's live line)."""
+    with LOCK:
+        done = [j for j in JOBS.values() if j.get("done")]
+        rooms = [t["receipt"] for j in done for t in j.get("tries", [])]
+        last = max(rooms, key=lambda r: r.get("destroyed") or 0, default=None)
+        return {"rooms": len(rooms) + sum(1 for j in done if j.get("survey_receipt")), "files": len(done),
+                "stopped": sum(_stopped(j) for j in done),
+                "escapes": sum(1 for j in done for p in j.get("probes", []) if p.get("held") is False)
+                + sum(1 for r in rooms for a in r.get("attempts", []) if a.get("what") == "browser" and a.get("detail", "").endswith("(none)")),
+                "last_room": (last or {}).get("room", "").upper(), "last_at": (last or {}).get("destroyed"),
+                "since": STARTED}
+
+
 @app.get("/api/intakes")
 def list_intakes(req: Request):
     with LOCK:

@@ -42,6 +42,14 @@ async function loadSamples() {
   const names = (await api("/api/samples")).filter((n) => !(n.endsWith(".docx") && n.startsWith("granite")));  // the .eml carries it
   $("samples").innerHTML = names.map((n) => `<button data-s="${esc(n)}">${esc(label(n))}</button>`).join("·");
   $("samples").onclick = (e) => { e.stopPropagation(); const s = e.target.dataset.s; if (s) start({ sample: s }); };
+  // arriving from the landing page's guided buttons: run that sample (or the break-in test) once
+  const qs = new URLSearchParams(location.search), job = qs.get("job"), run = qs.get("run");
+  if (job) { follow(job, true); return; }                      // from the landing: the very file we just watched outside
+  if (run && !sessionStorage.getItem("ran:" + run)) {
+    sessionStorage.setItem("ran:" + run, "1");
+    if (run === "breakin") $("breakin").click();
+    else { const n = names.find((x) => x.startsWith(run)); if (n) start({ sample: n }); }
+  }
 }
 const drop = $("drop");
 $("breakin").onclick = async (e) => {
